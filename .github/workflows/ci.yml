@@ -88,5 +88,14 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # The app must start on a PC without the Visual C++ Redistributable, so the
+      # .exe may not import VCRUNTIME140*.dll (see .cargo/config.toml). Debug links
+      # the same CRT as release, and the target dir is warm from the tests.
+      - name: Check static C runtime
+        shell: pwsh
+        run: |
+          cargo build -p trackcut --locked
+          ./scripts/check-windows-crt.ps1 target\debug\trackcut.exe
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
