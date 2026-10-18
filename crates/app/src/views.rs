@@ -88,6 +88,7 @@ pub fn App() -> Element {
             || app.editing_title.peek().is_some()
             || app.url_dialog.peek().is_some()
             || app.licence_dialog.peek().is_some()
+            || *app.mcp_dialog.peek()
             || *app.renaming.peek()
             || app.confirm_delete.peek().is_some()
         {
@@ -279,6 +280,7 @@ pub fn App() -> Element {
             UrlDialog {}
             DeleteDialog {}
             LicenceDialog {}
+            crate::mcp_panel::McpDialog {}
         }
         // Dismissed for this session only: the next launch asks again.
         if let Some(info) = update() {
@@ -404,6 +406,14 @@ fn Sidebar() -> Element {
                         disabled: app.download.read().is_some(),
                         onclick: move |_| app.ask_url(),
                         "URL…"
+                    }
+                    button {
+                        title: "Use TrackCut from Claude Desktop or Claude Code",
+                        onclick: move |_| {
+                            let mut dialog = app.mcp_dialog;
+                            dialog.set(true);
+                        },
+                        "MCP"
                     }
                     {
                         let (label, title) = match *app.licence.read() {

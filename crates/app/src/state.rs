@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 #[derive(Clone)]
 pub enum ScanState {
@@ -51,6 +51,11 @@ pub struct App {
     pub cutlist: Signal<Cutlist>,
     /// Unsaved changes since this instant (debounced saves during drags).
     pub cut_dirty: Signal<Option<Instant>>,
+    /// The cutlist file's modification time as this window last read or wrote it, and when
+    /// that was last checked: a newer one was written by another process (`trackcut mcp`,
+    /// driven by Claude), and is loaded. See `reload_if_changed`.
+    cutlist_seen: Signal<Option<SystemTime>>,
+    cutlist_checked: Signal<Instant>,
     pub history: Signal<HashMap<String, History>>,
     /// Index of the split being reviewed in the current recording.
     pub cur_split: Signal<Option<usize>>,
@@ -94,6 +99,8 @@ pub struct App {
     pub download: Signal<Option<crate::download::Download>>,
     /// The last download's output, kept after it ends until closed.
     pub download_log: Signal<Option<crate::download::DownloadLog>>,
+    /// The "Use TrackCut from Claude" window is open.
+    pub mcp_dialog: Signal<bool>,
     /// When the current error message was first shown (they fade after a while).
     error_since: Signal<Option<Instant>>,
 }
@@ -117,6 +124,8 @@ impl App {
             scanner: Signal::new(Scanner::spawn()),
             cutlist: Signal::new(Cutlist::default()),
             cut_dirty: Signal::new(None),
+            cutlist_seen: Signal::new(None),
+            cutlist_checked: Signal::new(Instant::now()),
             history: Signal::new(HashMap::new()),
             cur_split: Signal::new(None),
             closed_track: Signal::new(None),
@@ -140,6 +149,7 @@ impl App {
             licence_dialog: Signal::new(None),
             download: Signal::new(None),
             download_log: Signal::new(None),
+            mcp_dialog: Signal::new(false),
             error_since: Signal::new(None),
         }
     }
@@ -186,6 +196,7 @@ impl App {
             }
         };
         self.cutlist.set(cutlist);
+        self.cutlist_seen.set(cutlist_mtime(&dir));
         self.history.write().clear();
         prefs::remember_folder(&dir);
         let pending: Vec<PathBuf> = {
@@ -587,6 +598,39 @@ impl App {
         if self.cut_dirty.peek().is_some_and(|t| t.elapsed() > Duration::from_millis(400)) {
             self.save_now();
         }
+        self.reload_if_changed();
+    }
+
+    /// Load the folder again when another process changed its cutlist: `trackcut mcp`, which
+    /// Claude drives, edits the same file. Checked once a second, and only with nothing unsaved
+    /// here (unsaved edits are newer, and are written over it). A recording it added, such as
+    /// a cleaned copy, joins the file list.
+    fn reload_if_changed(mut self) {
+        if self.cutlist_checked.peek().elapsed() < Duration::from_secs(1) || self.cut_dirty.peek().is_some() {
+            return;
+        }
+        self.cutlist_checked.set(Instant::now());
+        let Some(dir) = self.folder.peek().clone() else { return };
+        let now = cutlist_mtime(&dir);
+        if now == *self.cutlist_seen.peek() {
+            return;
+        }
+        self.cutlist_seen.set(now);
+        let Ok(cutlist) = Cutlist::load(&dir) else { return };
+        if cutlist != *self.cutlist.peek() {
+            self.cutlist.set(cutlist);
+            // Undo would bring back the edit as it was before the other process changed it.
+            self.history.write().clear();
+            self.cur_split.set(None);
+            self.closed_track.set(None);
+        }
+        let listed = |r: &[Recording]| r.iter().map(|r| r.path.clone()).collect::<Vec<_>>();
+        let on_disk = list_recordings(&dir).map(|r| listed(&r)).unwrap_or_default();
+        if on_disk != listed(&self.recordings.peek()) {
+            if let Some(path) = self.selected_path() {
+                self.refresh_recordings(&path);
+            }
+        }
     }
 
     /// Write the cutlist if anything changed.
@@ -599,6 +643,7 @@ impl App {
         if let Err(e) = self.cutlist.peek().save(&dir) {
             self.error.set(Some(format!("Could not save the cutlist: {e}")));
         }
+        self.cutlist_seen.set(cutlist_mtime(&dir));
     }
 
     /// Page the detail view when the playhead runs off its right edge.
@@ -630,6 +675,10 @@ fn move_to_trash(path: &Path) -> Result<(), trash::Error> {
 /// Move `map[from]` to `to`. Returns whether there was an entry.
 fn rekey<K: std::hash::Hash + Eq, V>(map: &mut HashMap<K, V>, from: &K, to: K) -> bool {
     map.remove(from).map(|v| map.insert(to, v)).is_some()
+}
+
+fn cutlist_mtime(dir: &Path) -> Option<SystemTime> {
+    std::fs::metadata(dir.join(trackcut_core::cutlist::FILE_NAME)).and_then(|m| m.modified()).ok()
 }
 
 /// Cutlist key for a recording: its file name, so the folder can be moved or renamed.

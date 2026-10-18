@@ -27,6 +27,9 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2
 # Deleting a recording from the file list moves it to the system Trash, so it can be restored.
 trash = "5.2"
 base64.workspace = true
+# The Copy buttons in the "Use TrackCut from Claude" window: the native clipboard, since the
+# web view's clipboard API needs a secure origin and a gesture check that differ per platform.
+arboard = "3"
 # The anonymous install id for usage statistics: 128 random bits. Already
 # in the tree via other crates, so this names a dependency rather than adding one.
 getrandom = "0.3"

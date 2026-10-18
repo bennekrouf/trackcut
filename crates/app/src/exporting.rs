@@ -171,6 +171,113 @@ fn run(mut task: Task, generation: &AtomicU64, events: &Sender<Event>) {
     status(ExportStatus::Finished { dir: task.dir, count: total });
 }
 
+/// Why a recording has no export to run.
+enum Unplanned {
+    /// No folder to put its tracks in (a path without a parent or a name).
+    NoFolder,
+    /// Every track is left out.
+    NothingKept,
+}
+
+/// The export of `path` with `settings`: its folder, one job per track written, and the
+/// format, plus how many tracks are kept in all (without Pro, only the first ones are
+/// written; their tags keep the real total). The window's queue and `mcp` both start here.
+fn task_for(
+    path: &Path,
+    scan: Arc<Scan>,
+    edit: Option<&trackcut_core::edit::RecordingEdit>,
+    settings: &trackcut_core::export::ExportSettings,
+    pro: bool,
+    loudness: Option<Arc<LoudnessMap>>,
+    generation: u64,
+) -> Result<(Task, usize), Unplanned> {
+    let dir = export_dir_of(path).ok_or(Unplanned::NoFolder)?;
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let src_ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "mp3".into());
+    let profile = settings.profile.effective(&source_facts(path, &scan));
+    // A video is exported as video clips, never as audio.
+    let video = trackcut_core::is_video(path).then_some(settings.video);
+    let ext = match video {
+        Some(v) => v.extension().to_string(),
+        None => profile.extension(&src_ext).to_string(),
+    };
+    let mut planned = match edit {
+        Some(edit) => plan(edit, scan.info.total_samples, &stem, settings),
+        None => plan(&Default::default(), scan.info.total_samples, &stem, settings),
+    };
+    let kept = planned.len();
+    // Without Pro, the first tracks only; their tags keep the recording's real total.
+    planned.truncate(exported_tracks(kept, pro));
+    if planned.is_empty() {
+        return Err(Unplanned::NothingKept);
+    }
+    let jobs = planned
+        .iter()
+        .map(|t| ExportJob {
+            start: t.start,
+            end: t.end,
+            path: dir.join(format!("{}.{ext}", t.stem)),
+            gain_db: 0.0,
+            tags: Tags { title: t.title.clone(), album: stem.clone(), track: t.number, total: t.total, replaygain: None },
+        })
+        .collect();
+    let task = Task {
+        key: key_of(path),
+        generation,
+        loudness,
+        source: path.to_owned(),
+        scan,
+        jobs,
+        dir,
+        profile,
+        normalize: settings.normalize,
+        video,
+    };
+    Ok((task, kept))
+}
+
+/// What `export_now` wrote.
+pub(crate) struct Exported {
+    pub dir: PathBuf,
+    pub files: Vec<PathBuf>,
+    /// Tracks kept in all; more than `files` when the free version's limit applied.
+    pub kept: usize,
+}
+
+/// Export `path` on the calling thread, exactly as the window's queue would, for `mcp`.
+/// Loudness is measured (or read from its cache) first, so tracks get ReplayGain tags as
+/// they do in the window once its background measurement is in.
+pub(crate) fn export_now(
+    path: &Path,
+    scan: Arc<Scan>,
+    edit: Option<&trackcut_core::edit::RecordingEdit>,
+    settings: &trackcut_core::export::ExportSettings,
+    pro: bool,
+) -> Result<Exported, String> {
+    let loudness = load_or_analyze(path, &scan, &mut |_| {}).ok().map(Arc::new);
+    let (task, kept) = match task_for(path, scan, edit, settings, pro, loudness, 0) {
+        Ok(t) => t,
+        Err(Unplanned::NoFolder) => return Err(format!("{} has no folder to export into", path.display())),
+        Err(Unplanned::NothingKept) => return Err("every track is left out".into()),
+    };
+    let files: Vec<PathBuf> = task.jobs.iter().map(|j| j.path.clone()).collect();
+    let (tx, events) = crossbeam_channel::unbounded();
+    run(task, &AtomicU64::new(0), &tx);
+    drop(tx);
+    let last = events
+        .into_iter()
+        .filter_map(|e| match e {
+            Event::Status(_, s) => Some(s),
+            Event::Loudness(..) => None,
+        })
+        .last();
+    match last {
+        Some(ExportStatus::Finished { dir, .. }) => Ok(Exported { dir, files, kept }),
+        Some(ExportStatus::Failed(e)) => Err(e),
+        _ => Err("the export stopped without finishing".into()),
+    }
+}
+
 /// Where a recording's tracks go: a folder named after it, next to it.
 pub fn export_dir_of(path: &Path) -> Option<PathBuf> {
     let stem = path.file_stem()?.to_string_lossy().into_owned();
@@ -188,55 +295,26 @@ impl App {
             Some(ScanState::Ready(s)) => s.clone(),
             _ => return false,
         };
-        let Some(dir) = export_dir_of(&path) else { return false };
-        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-        let src_ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "mp3".into());
-        let settings = self.cutlist.peek().export.clone();
-        let profile = settings.profile.effective(&source_facts(&path, &scan));
-        // A video is exported as video clips, never as audio.
-        let video = trackcut_core::is_video(&path).then_some(settings.video);
-        let ext = match video {
-            Some(v) => v.extension().to_string(),
-            None => profile.extension(&src_ext).to_string(),
-        };
-        let mut planned = match self.cutlist.peek().recordings.get(&key) {
-            Some(edit) => plan(edit, scan.info.total_samples, &stem, &settings),
-            None => plan(&Default::default(), scan.info.total_samples, &stem, &settings),
-        };
-        // Without Pro, the first tracks only; their tags keep the recording's real total.
-        planned.truncate(exported_tracks(planned.len(), self.licence.peek().exports_all()));
-        if planned.is_empty() {
-            self.exports.write().insert(key, ExportStatus::Failed("every track is left out".into()));
-            return false;
-        }
-        let jobs = planned
-            .iter()
-            .map(|t| ExportJob {
-                start: t.start,
-                end: t.end,
-                path: dir.join(format!("{}.{ext}", t.stem)),
-                gain_db: 0.0,
-                tags: Tags {
-                    title: t.title.clone(),
-                    album: stem.clone(),
-                    track: t.number,
-                    total: t.total,
-                    replaygain: None,
-                },
-            })
-            .collect();
         let exporter = self.exporter.peek().clone();
-        let task = Task {
-            key: key.clone(),
-            generation: exporter.generation.load(Ordering::SeqCst),
-            loudness: self.loudness.peek().get(&path).cloned(),
-            source: path,
-            scan,
-            jobs,
-            dir,
-            profile,
-            normalize: settings.normalize,
-            video,
+        let planned = {
+            let cutlist = self.cutlist.peek();
+            task_for(
+                &path,
+                scan,
+                cutlist.recordings.get(&key),
+                &cutlist.export,
+                self.licence.peek().exports_all(),
+                self.loudness.peek().get(&path).cloned(),
+                exporter.generation.load(Ordering::SeqCst),
+            )
+        };
+        let task = match planned {
+            Ok((task, _kept)) => task,
+            Err(Unplanned::NoFolder) => return false,
+            Err(Unplanned::NothingKept) => {
+                self.exports.write().insert(key, ExportStatus::Failed("every track is left out".into()));
+                return false;
+            }
         };
         if exporter.tx.send(task).is_ok() {
             self.exports.write().insert(key, ExportStatus::Queued);

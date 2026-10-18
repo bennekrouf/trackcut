@@ -26,7 +26,7 @@ pub struct Applying {
 }
 
 /// `name (cleaned).wav` (`.mp4` for a video) next to the original, or `(cleaned 2)`, … if taken.
-fn cleaned_path(path: &Path) -> PathBuf {
+pub(crate) fn cleaned_path(path: &Path) -> PathBuf {
     let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     let ext = if trackcut_core::is_video(path) { "mp4" } else { "wav" };
     (1..)
@@ -36,6 +36,29 @@ fn cleaned_path(path: &Path) -> PathBuf {
         })
         .find(|p| !p.exists())
         .unwrap()
+}
+
+/// Writes `ranges` of `src` back to back to `dst`: a WAV, or for a video an MP4 in `video`'s
+/// format. Returns how many frames into the copy its timeline starts (a video's AAC priming),
+/// which the copy's splits are shifted by.
+pub(crate) fn write_cleaned(
+    src: &Path,
+    scan: &trackcut_audio::Scan,
+    ranges: &[(u64, u64)],
+    dst: &Path,
+    video: Option<trackcut_core::export::VideoProfile>,
+    progress: &mut dyn FnMut(f32),
+) -> Result<u64, String> {
+    let rate = scan.info.sample_rate;
+    match video {
+        Some(profile) => tools::ensure_ffmpeg(&tools::dir(), &mut |_| {}, &|| false).and_then(|ffmpeg| {
+            write_ranges(&ffmpeg, src, Timeline::of(src, rate), ranges, dst, profile, progress)
+                .map(|()| Timeline::of(dst, rate).frame(0.0))
+        }),
+        None => trackcut_audio::transcode::write_ranges_to_wav(src, scan, ranges, dst, progress)
+            .map(|()| 0)
+            .map_err(|e| format!("{e:#}")),
+    }
 }
 
 impl App {
@@ -73,16 +96,7 @@ impl App {
                     let _ = tx.send(Event::Progress(p));
                 }
             };
-            let rate = scan.info.sample_rate;
-            let r = match video {
-                Some(profile) => tools::ensure_ffmpeg(&tools::dir(), &mut |_| {}, &|| false).and_then(|ffmpeg| {
-                    write_ranges(&ffmpeg, &src, Timeline::of(&src, rate), &ranges, &dst, profile, &mut progress)
-                        .map(|()| Timeline::of(&dst, rate).frame(0.0))
-                }),
-                None => trackcut_audio::transcode::write_ranges_to_wav(&src, &scan, &ranges, &dst, &mut progress)
-                    .map(|()| 0)
-                    .map_err(|e| format!("{e:#}")),
-            };
+            let r = write_cleaned(&src, &scan, &ranges, &dst, video, &mut progress);
             let _ = tx.send(match r {
                 Ok(shift) => Event::Done(shift),
                 Err(e) => Event::Failed(format!("Could not apply the cuts: {e}")),
