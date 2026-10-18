@@ -13,7 +13,7 @@ use std::time::Instant;
 /// Seconds played on each side of a split when reviewing it.
 pub const PREVIEW_SECS: f64 = 3.0;
 /// Radius searched by snap-to-silence.
-const SNAP_SECS: f64 = 0.5;
+pub(crate) const SNAP_SECS: f64 = 0.5;
 /// New suggestions this close to a confirmed split are dropped on re-detect.
 const KEEP_CLEAR_SECS: f64 = 2.0;
 
@@ -71,17 +71,8 @@ impl App {
     pub fn ensure_detected(self, path: &Path, scan: &Scan) {
         let key = key_of(path);
         let mut cutlist = self.cutlist;
-        {
-            let mut cl = cutlist.write();
-            let edit = cl.recordings.entry(key).or_default();
-            if edit.detected && edit.silences_detected {
-                return;
-            }
-            if !edit.detected {
-                let suggestions = suggest(scan, &edit.detect);
-                edit.apply_detection(suggestions, (KEEP_CLEAR_SECS * scan.info.sample_rate as f64) as u64);
-            }
-            edit.set_silences(tag(scan, &edit.detect));
+        if !detect_once(cutlist.write().recordings.entry(key).or_default(), scan) {
+            return;
         }
         self.mark_dirty();
         self.save_now();
@@ -95,7 +86,7 @@ impl App {
     /// Replace unreviewed suggestions using the current settings. Confirmed splits stay.
     pub fn redetect(mut self) {
         let Some(scan) = self.current_scan() else { return };
-        let gap = (KEEP_CLEAR_SECS * scan.info.sample_rate as f64) as u64;
+        let gap = keep_clear(&scan);
         self.change(|e| {
             let suggestions = suggest(&scan, &e.detect);
             e.apply_detection(suggestions, gap);
@@ -369,12 +360,33 @@ pub fn track_in_focus(e: &RecordingEdit, cur: Option<usize>, closed: Option<usiz
     closed.filter(|&k| k <= e.splits.len()).unwrap_or_else(|| e.current_track(cur, pos))
 }
 
-fn tag(scan: &Scan, params: &DetectParams) -> Vec<Silence> {
+/// The first detection of a recording, as the window runs it when the recording's scan
+/// arrives: split suggestions once, then its silences (recordings detected before silence
+/// tagging existed only get those). Returns whether it changed anything. `mcp` runs it too,
+/// for a recording Claude asks about before the window has opened it.
+pub(crate) fn detect_once(edit: &mut RecordingEdit, scan: &Scan) -> bool {
+    if edit.detected && edit.silences_detected {
+        return false;
+    }
+    if !edit.detected {
+        let suggestions = suggest(scan, &edit.detect);
+        edit.apply_detection(suggestions, keep_clear(scan));
+    }
+    edit.set_silences(tag(scan, &edit.detect));
+    true
+}
+
+/// `KEEP_CLEAR_SECS` in the recording's frames.
+pub(crate) fn keep_clear(scan: &Scan) -> u64 {
+    (KEEP_CLEAR_SECS * scan.info.sample_rate as f64) as u64
+}
+
+pub(crate) fn tag(scan: &Scan, params: &DetectParams) -> Vec<Silence> {
     let l = &scan.loudness;
     detect::tag(&l.db, l.window, scan.info.sample_rate, params)
 }
 
-fn suggest(scan: &Scan, params: &DetectParams) -> Vec<Split> {
+pub(crate) fn suggest(scan: &Scan, params: &DetectParams) -> Vec<Split> {
     let l = &scan.loudness;
     detect::suggest(&l.db, l.window, scan.info.sample_rate, params)
 }

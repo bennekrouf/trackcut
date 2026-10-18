@@ -215,6 +215,13 @@ fn run(
     Ok(wav)
 }
 
+/// The whole download on the calling thread, for `mcp`: the same as the window's, without
+/// its progress, log or cancel. Returns the file it opens (a WAV, MP3 or MP4).
+pub(crate) fn download_now(url: &str, kind: Kind) -> Result<PathBuf, String> {
+    let (tx, _events) = crossbeam_channel::unbounded();
+    run(url, kind, &downloads_dir(), &tools::dir(), &Mutex::new(None), &AtomicBool::new(false), &tx)
+}
+
 /// Forward progress; returns the downloaded files, in order, and yt-dlp's error lines.
 fn read_output(
     stdout: impl Read + Send + 'static,

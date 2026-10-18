@@ -15,6 +15,20 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- Use TrackCut from Claude. The new **MCP** button at the top of the file list
+  shows what to paste into Claude Desktop, or the one line to run for Claude
+  Code, already pointing at where TrackCut is installed. Claude can then list
+  a folder's recordings, find a recording's tracks, confirm, move, add or
+  remove splits, re-run silence detection with other settings, name the
+  tracks or paste a tracklist, leave tracks out, mark a recording done,
+  export it, apply the cuts, and download a recording from a link. What
+  Claude changes in the folder open in the window shows up there within a
+  second.
+
 ## [0.1.21] - 2026-10-16
 
 ### Added

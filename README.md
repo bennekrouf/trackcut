@@ -93,6 +93,22 @@ Scan and seek timings on any file:
 cargo run -p trackcut-audio --release --example bench -- testdata/live-set-60min.mp3
 ```
 
+## Use from Claude (MCP)
+
+`trackcut mcp` serves the recordings to an MCP client over stdio, with no window
+(`crates/app/src/mcp.rs`). The **MCP** button in the sidebar header shows the Claude
+Desktop config and the Claude Code command, pointing at the installed executable. The
+tools: `list_recordings` (defaults to the window's last folder), `get_recording`,
+`detect`, `edit_splits`, `set_tracks`, `paste_tracklist`, `set_status`, `export`,
+`apply_cuts` and `download`. Recordings are named by absolute path; times are seconds.
+
+They run the window's own code: the scan and its cache, first detection
+(`review::detect_once`), export planning and the export worker (`exporting::export_now`,
+with the same free-version limit), Apply cuts (`cleaning::write_cleaned`) and yt-dlp
+(`download::download_now`). Each tool reads the folder's cutlist, changes it and writes
+it back at once. The window checks the cutlist's modification time once a second and
+loads it again when another process wrote it and nothing is unsaved in the window.
+
 ## Pro licence
 
 Click **TrackCut** (top of the file list) to paste a TrackCut Pro licence key. The key is

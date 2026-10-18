@@ -6,6 +6,8 @@ mod cleaning;
 mod download;
 mod exporting;
 mod licence;
+mod mcp;
+mod mcp_panel;
 mod media_server;
 mod review;
 mod state;
@@ -26,6 +28,10 @@ fn webview_data_dir() -> std::path::PathBuf {
 }
 
 fn main() {
+    // `trackcut mcp`: the recordings over stdio for an MCP client, and no window.
+    if std::env::args().nth(1).as_deref() == Some("mcp") {
+        return mcp::serve();
+    }
     let cfg = Config::new()
         .with_data_directory(webview_data_dir())
         .with_window(
