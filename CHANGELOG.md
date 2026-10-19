@@ -15,6 +15,14 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Fixed
+
+- On Windows, TrackCut no longer fails to start with "VCRUNTIME140_1.dll was
+  not found" on PCs without the Microsoft Visual C++ Redistributable. Nothing
+  extra needs to be installed any more.
+
 ## [0.1.22] - 2026-10-18
 
 ### Added

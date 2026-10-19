@@ -329,6 +329,11 @@ jobs:
           MAYORANA_TELEMETRY_URL: ${{ vars.MAYORANA_TELEMETRY_URL }}
         run: cargo build --release
 
+      # Never ship an .exe that needs the Visual C++ Redistributable installed.
+      - name: Check static C runtime
+        shell: pwsh
+        run: ./scripts/check-windows-crt.ps1 target\release\trackcut.exe
+
       - name: Copy WebView2Loader.dll
         shell: pwsh
         run: |
