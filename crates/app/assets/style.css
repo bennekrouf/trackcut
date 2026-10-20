@@ -638,6 +638,8 @@ button.brand:hover { color: var(--accent); }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+.feedback-link { font-size: 11px; color: var(--dim); text-decoration: none; white-space: nowrap; }
+.feedback-link:hover { color: var(--text); text-decoration: underline; }
 .pro-badge {
   font-size: 10px;
   font-weight: 700;
