@@ -15,6 +15,14 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- A Feedback link beside the version number opens the contact form with
+  TrackCut and your version already filled in, so an idea or a problem
+  reaches us in two clicks.
+
 ## [0.1.24] - 2026-10-19
 
 ### Changed

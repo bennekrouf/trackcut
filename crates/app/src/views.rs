@@ -398,6 +398,14 @@ fn Sidebar() -> Element {
                     }
                     // Which build is running, for bug reports and support.
                     span { class: "app-version", { concat!("v", env!("CARGO_PKG_VERSION")) } }
+                    // A link, not a button: the webview hands it to the browser.
+                    a {
+                        class: "feedback-link",
+                        href: "{crate::feedback::contact_url()}",
+                        target: "_blank",
+                        title: "Ideas, bugs, questions: send them to the person who makes TrackCut",
+                        "Feedback"
+                    }
                 }
                 div { class: "head-actions",
                     button { title: "Open a folder of recordings (⌘O)", onclick: move |_| open_folder(app), "Open folder…" }
