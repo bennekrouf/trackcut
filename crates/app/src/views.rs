@@ -437,6 +437,7 @@ fn Sidebar() -> Element {
                         let (label, title) = match *app.licence.read() {
                             crate::licence::Status::Pro(_) => ("Pro ✓", "TrackCut Pro is active on this computer"),
                             crate::licence::Status::Free => ("Get Pro…", "Subscribe to TrackCut Pro, or paste your licence number"),
+                            crate::licence::Status::NotPro(ref a) if a.is_free() => ("Get Pro…", "Free AI credits, no Pro: subscribe to TrackCut Pro to export every track"),
                             _ => ("Renew Pro…", "Your licence doesn't make this TrackCut Pro right now"),
                         };
                         rsx! {
@@ -707,9 +708,13 @@ fn LicenceDialog() -> Element {
     let app = use_context::<state::App>();
     let mut problem = use_signal(|| Option::<String>::None);
     let mut busy = use_signal(|| false);
+    let free_email = use_signal(String::new);
+    let free_note = use_signal(|| Option::<String>::None);
+    let free_hidden = use_signal(|| false);
     let Some(text) = (app.licence_dialog)() else { return rsx! {} };
     let status = app.licence.read().clone();
-    let asks_number = matches!(status, Status::Free | Status::Unknown(_));
+    let asks_number = matches!(status, Status::Free | Status::Unknown(_)) || status.free_credits().is_some();
+    let offers_free = matches!(status, Status::Free | Status::Unknown(_)) && !free_hidden();
     let mut dialog = app.licence_dialog;
     let close = move || {
         let mut dialog = app.licence_dialog;
@@ -748,6 +753,26 @@ fn LicenceDialog() -> Element {
             busy.set(false);
         });
     };
+    let ask_free = move || {
+        let email = free_email.peek().clone();
+        if email.trim().is_empty() || *busy.peek() {
+            return;
+        }
+        let mut busy = busy;
+        busy.set(true);
+        spawn(async move {
+            let (mut problem, mut free_note, mut free_hidden) = (problem, free_note, free_hidden);
+            match licence::request_free_credits_async(email).await {
+                Ok(message) => {
+                    free_note.set(Some(format!("{message} Paste the licence number above when it arrives.")));
+                    problem.set(None);
+                }
+                Err(trackcut_core::license::FreeError::Unavailable) => free_hidden.set(true),
+                Err(trackcut_core::license::FreeError::Refused(e)) => problem.set(Some(e)),
+            }
+            busy.set(false);
+        });
+    };
     let manage = move |number: String| {
         let mut busy = busy;
         busy.set(true);
@@ -774,6 +799,13 @@ fn LicenceDialog() -> Element {
                     Status::Pro(a) => rsx! {
                         p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
                         p { class: "dim", "{a.credits.left} AI credits left this month. {a.renewal()}." }
+                    },
+                    Status::NotPro(a) if a.is_free() => rsx! {
+                        p { "Free — " strong { "{a.credits.left} AI credits" } " left this month, for " strong { "{a.email}" } ". {a.renewal()}." }
+                        p { class: "dim",
+                            "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
+                            "TrackCut Pro exports all of them; it comes with a monthly plan on mayorana.ch."
+                        }
                     },
                     Status::NotPro(a) if !a.active => rsx! {
                         p { "The subscription for " strong { "{a.email}" } " isn't active." }
@@ -830,6 +862,39 @@ fn LicenceDialog() -> Element {
                         },
                     }
                 }
+                if offers_free {
+                    div { class: "free-credits",
+                        p { class: "dim", "No plan? Get free AI credits every month, without Pro. The licence number comes by email." }
+                        div { class: "free-row",
+                            input {
+                                class: "licence-key",
+                                r#type: "email",
+                                spellcheck: "false",
+                                placeholder: "you@example.com",
+                                value: "{free_email}",
+                                oninput: move |e| {
+                                    let mut free_email = free_email;
+                                    free_email.set(e.value());
+                                },
+                                onkeydown: move |e: KeyboardEvent| {
+                                    e.stop_propagation();
+                                    match e.key() {
+                                        Key::Escape => close(),
+                                        Key::Enter => {
+                                            e.prevent_default();
+                                            ask_free();
+                                        }
+                                        _ => {}
+                                    }
+                                },
+                            }
+                            button { disabled: free_email.read().trim().is_empty() || busy(), onclick: move |_| ask_free(), "Get free AI credits" }
+                        }
+                        if let Some(n) = free_note() {
+                            p { class: "dim", "{n}" }
+                        }
+                    }
+                }
                 if let Some(p) = problem() {
                     p { class: "match todo", "{p}" }
                 }
@@ -845,7 +910,7 @@ fn LicenceDialog() -> Element {
                     }
                     if !matches!(status, Status::Pro(_)) {
                         a { class: "button-link", href: "{licence::BUY_URL}", target: "_blank",
-                            if status.licence().is_some() { "Renew…" } else { "Buy TrackCut Pro…" }
+                            if status.licence().is_some() && status.free_credits().is_none() { "Renew…" } else { "Buy TrackCut Pro…" }
                         }
                     }
                     button { onclick: move |_| close(), if asks_number { "Cancel" } else { "Close" } }

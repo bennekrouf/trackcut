@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use trackcut_core::license::Status;
-use trackcut_core::license::{self, Answer, Saved, PRODUCT};
+use trackcut_core::license::{self, Answer, FreeError, Saved, PRODUCT};
 
 /// Where "Buy TrackCut Pro" leads.
 pub const BUY_URL: &str = "https://mayorana.ch/en/apps/trackcut";
@@ -153,6 +153,31 @@ pub async fn activate_async(typed: String) -> Result<Status, String> {
 /// `portal_url`, off the UI thread.
 pub async fn portal_url_async(licence: String) -> Result<String, String> {
     tokio::task::spawn_blocking(move || portal_url(&licence)).await.map_err(|e| e.to_string())?
+}
+
+/// Asks api0 to email `email` a licence for the free allowance of AI credits. The licence
+/// number itself only goes by email. Blocking.
+pub fn request_free_credits(email: &str) -> Result<String, FreeError> {
+    if !license::plausible_email(email) {
+        return Err(FreeError::Refused("Enter the email the licence should go to.".into()));
+    }
+    let failed = |e: String| FreeError::Refused(format!("The free AI credits couldn't be requested ({e})."));
+    let mut resp = agent()
+        .post(format!("{GATEWAY}/api/plans/free"))
+        .header("X-Client-App", PRODUCT)
+        .header("Content-Type", "application/json")
+        .send(serde_json::json!({ "email": email.trim() }).to_string())
+        .map_err(|e| failed(e.to_string()))?;
+    let status = resp.status().as_u16();
+    let body = resp.body_mut().read_to_string().unwrap_or_default();
+    license::free_reply(status, &body)
+}
+
+/// `request_free_credits`, off the UI thread.
+pub async fn request_free_credits_async(email: String) -> Result<String, FreeError> {
+    tokio::task::spawn_blocking(move || request_free_credits(&email))
+        .await
+        .map_err(|e| FreeError::Refused(e.to_string()))?
 }
 
 /// Opens `url` in the default browser.

@@ -649,6 +649,9 @@ button.brand:hover { color: var(--accent); }
   border-radius: 3px;
   padding: 1px 5px;
 }
+.free-credits { margin-top: 10px; }
+.free-row { display: flex; gap: 6px; align-items: center; }
+.free-row .licence-key { flex: 1; min-width: 0; }
 .modal .licence-key { word-break: break-all; user-select: text; -webkit-user-select: text; }
 .modal-actions .left { margin-right: auto; }
 .button-link {
