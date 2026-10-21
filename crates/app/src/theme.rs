@@ -28,10 +28,7 @@ pub fn ThemeToggle() -> Element {
     });
 
     use_effect(move || {
-        document::eval(&format!(
-            "document.body.classList.toggle('light', {});",
-            is_light()
-        ));
+        document::eval(&format!("document.body.classList.toggle('light', {});", is_light()));
     });
 
     let label = if is_light() { "Switch to dark mode" } else { "Switch to light mode" };

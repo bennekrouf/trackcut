@@ -8,13 +8,13 @@
 //! Loudness is always measured, so tracks get ReplayGain tags; with `--verify` each exported
 //! track is measured again and its loudness printed.
 
+use std::path::PathBuf;
+use std::time::Instant;
 use trackcut_audio::export::{can_copy, export, ExportJob, Tags};
 use trackcut_audio::loudness::{analyze, apply_to_jobs, load_or_analyze};
 use trackcut_audio::scan::{self as scanning, load_or_scan};
 use trackcut_core::cutlist::Cutlist;
 use trackcut_core::export::{plan, Normalize, Profile};
-use std::path::PathBuf;
-use std::time::Instant;
 
 fn main() {
     let mut args = std::env::args().skip(1);

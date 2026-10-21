@@ -5,10 +5,10 @@ mod common;
 
 use common::*;
 use mp3lame_encoder::Bitrate;
-use trackcut_audio::scan::scan;
-use trackcut_audio::source::open_source;
 use std::path::Path;
 use std::sync::Arc;
+use trackcut_audio::scan::scan;
+use trackcut_audio::source::open_source;
 
 fn check_seeks(path: &Path, expect_frames_close_to: u64) {
     let scan = scan(path, &mut |_| {}).unwrap();

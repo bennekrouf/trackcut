@@ -2,9 +2,9 @@
 #![allow(dead_code)]
 
 use mp3lame_encoder::{Bitrate, Builder, FlushNoGap, InterleavedPcm, Quality, VbrMode};
-use trackcut_audio::source::PcmSource;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
+use trackcut_audio::source::PcmSource;
 
 pub const RATE: u32 = 44100;
 pub const SECS: usize = 12;

@@ -5,13 +5,13 @@ mod common;
 
 use common::*;
 use mp3lame_encoder::Bitrate;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use trackcut_audio::export::{export, ExportJob, Tags};
 use trackcut_audio::scan::scan;
 use trackcut_audio::source::open_source;
 use trackcut_audio::transcode::preview;
 use trackcut_core::export::Profile;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 const A: u64 = 1_153 * 3 + 7;
 const B: u64 = 5 * RATE as u64 + 22_050;

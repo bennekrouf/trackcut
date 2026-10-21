@@ -3,11 +3,11 @@
 
 use crate::state::App;
 use dioxus::prelude::*;
+use std::sync::Arc;
 use trackcut_audio::source::open_source;
 use trackcut_audio::transcode::preview;
 use trackcut_audio::{AltPcm, Bitrate};
 use trackcut_core::export::Profile;
-use std::sync::Arc;
 
 /// Length of the compared window.
 pub const AB_SECS: f64 = 12.0;

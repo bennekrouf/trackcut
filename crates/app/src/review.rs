@@ -2,13 +2,13 @@
 
 use crate::state::{key_of, App};
 use dioxus::prelude::*;
+use std::path::Path;
+use std::time::Instant;
 use trackcut_audio::Scan;
 use trackcut_core::detect;
 use trackcut_core::edit::{DetectParams, RecordingEdit, Silence, Split};
 use trackcut_core::tracklist;
 use trackcut_core::Status;
-use std::path::Path;
-use std::time::Instant;
 
 /// Seconds played on each side of a split when reviewing it.
 pub const PREVIEW_SECS: f64 = 3.0;

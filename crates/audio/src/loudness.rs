@@ -7,10 +7,10 @@ use crate::scan::{read_cached, write_cached, CacheKey, Scan};
 use crate::source::open_source;
 use anyhow::{anyhow, Result};
 use ebur128::{EbuR128, Mode};
-use trackcut_core::export::Normalize;
-use trackcut_core::loudness::{normalize_gain, REPLAYGAIN_REFERENCE};
 use std::path::Path;
 use std::sync::Arc;
+use trackcut_core::export::Normalize;
+use trackcut_core::loudness::{normalize_gain, REPLAYGAIN_REFERENCE};
 
 pub use trackcut_core::loudness::LoudnessMap;
 

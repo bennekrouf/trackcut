@@ -5,12 +5,12 @@ mod common;
 
 use common::*;
 use mp3lame_encoder::Bitrate;
+use std::path::Path;
+use std::sync::Arc;
 use trackcut_audio::export::{export, ExportJob, Tags};
 use trackcut_audio::scan::scan;
 use trackcut_audio::source::open_source;
 use trackcut_core::export::Profile;
-use std::path::Path;
-use std::sync::Arc;
 
 /// Samples every MP3 decoder emits before the first real one; a track starting at 0 can't
 /// begin earlier than this.

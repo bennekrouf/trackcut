@@ -6,15 +6,15 @@ use crate::tools;
 use crate::video_export::{export_clip, Clip, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use dioxus::prelude::*;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use trackcut_audio::export::{can_copy, export, ExportJob, Tags};
 use trackcut_audio::loudness::{apply_to_jobs, load_or_analyze, LoudnessMap};
 use trackcut_audio::{Bitrate, Scan};
 use trackcut_core::export::{plan, Normalize, Profile, SourceFacts, VideoProfile};
 use trackcut_core::license::exported_tracks;
 use trackcut_core::Status;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
 /// Where one recording stands in the export queue.
 #[derive(Clone, Debug, PartialEq)]
@@ -218,7 +218,13 @@ fn task_for(
             end: t.end,
             path: dir.join(format!("{}.{ext}", t.stem)),
             gain_db: 0.0,
-            tags: Tags { title: t.title.clone(), album: stem.clone(), track: t.number, total: t.total, replaygain: None },
+            tags: Tags {
+                title: t.title.clone(),
+                album: stem.clone(),
+                track: t.number,
+                total: t.total,
+                replaygain: None,
+            },
         })
         .collect();
     let task = Task {
