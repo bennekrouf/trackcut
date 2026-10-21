@@ -6,6 +6,10 @@ use crate::review;
 use crate::state::{self, key_of, ScanState};
 use dioxus::html::input_data::MouseButton;
 use dioxus::prelude::*;
+use std::fmt::Write;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Duration;
 use trackcut_audio::{Bitrate, Scan};
 use trackcut_core::edit::SplitState;
 use trackcut_core::export::{plan, Normalize, Profile, VideoProfile};
@@ -13,10 +17,6 @@ use trackcut_core::loudness::Loudness;
 use trackcut_core::time::{fmt_precise, fmt_short};
 use trackcut_core::tracklist;
 use trackcut_core::Status;
-use std::fmt::Write;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Duration;
 
 const CSS: &str = include_str!("../assets/style.css");
 /// Window title: the name and the running version, as in the other mayorana apps.
@@ -50,6 +50,16 @@ pub fn App() -> Element {
     // writes the cutlist on every mouse move).
     let skips = use_memo(move || app.wanted_skips());
     use_effect(move || app.player().set_skips(skips()));
+
+    // The licence is checked with api0 at start, then once a day.
+    use_future(move || async move {
+        let mut licence = app.licence;
+        licence.set(crate::licence::refresh_async(true).await);
+        loop {
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+            licence.set(crate::licence::refresh_async(false).await);
+        }
+    });
 
     // Delayed and best-effort: a release check is never worth slowing a cold start, and a
     // failed one is not worth mentioning.
@@ -426,8 +436,8 @@ fn Sidebar() -> Element {
                     {
                         let (label, title) = match *app.licence.read() {
                             crate::licence::Status::Pro(_) => ("Pro ✓", "TrackCut Pro is active on this computer"),
-                            crate::licence::Status::Renew(_) => ("Renew Pro…", "Your Pro updates ended before this version: renew or paste a new key"),
-                            _ => ("Get Pro…", "Buy TrackCut Pro, or paste your licence key"),
+                            crate::licence::Status::Free => ("Get Pro…", "Subscribe to TrackCut Pro, or paste your licence number"),
+                            _ => ("Renew Pro…", "Your licence doesn't make this TrackCut Pro right now"),
                         };
                         rsx! {
                             button {
@@ -696,8 +706,10 @@ fn LicenceDialog() -> Element {
     use crate::licence::{self, Status};
     let app = use_context::<state::App>();
     let mut problem = use_signal(|| Option::<String>::None);
+    let mut busy = use_signal(|| false);
     let Some(text) = (app.licence_dialog)() else { return rsx! {} };
     let status = app.licence.read().clone();
+    let asks_number = matches!(status, Status::Free | Status::Unknown(_));
     let mut dialog = app.licence_dialog;
     let close = move || {
         let mut dialog = app.licence_dialog;
@@ -707,18 +719,46 @@ fn LicenceDialog() -> Element {
         app.focus_root();
     };
     let activate = move || {
-        let key = app.licence_dialog.peek().clone().unwrap_or_default();
-        let mut problem = problem;
-        match licence::activate(&key) {
-            Ok(s) => {
-                let mut licence = app.licence;
-                licence.set(s);
-                let mut dialog = app.licence_dialog;
-                dialog.set(Some(String::new()));
-                problem.set(None);
-            }
-            Err(e) => problem.set(Some(e)),
+        let typed = app.licence_dialog.peek().clone().unwrap_or_default();
+        if typed.trim().is_empty() || *busy.peek() {
+            return;
         }
+        let mut busy = busy;
+        busy.set(true);
+        spawn(async move {
+            let mut problem = problem;
+            match licence::activate_async(typed).await {
+                Ok(s) => {
+                    let mut licence = app.licence;
+                    licence.set(s);
+                    let mut dialog = app.licence_dialog;
+                    dialog.set(Some(String::new()));
+                    problem.set(None);
+                }
+                Err(e) => problem.set(Some(e)),
+            }
+            busy.set(false);
+        });
+    };
+    let check_again = move |_| {
+        busy.set(true);
+        spawn(async move {
+            let mut licence = app.licence;
+            licence.set(licence::refresh_async(true).await);
+            busy.set(false);
+        });
+    };
+    let manage = move |number: String| {
+        let mut busy = busy;
+        busy.set(true);
+        spawn(async move {
+            let mut problem = problem;
+            match licence::portal_url_async(number).await {
+                Ok(url) => licence::open_url(&url),
+                Err(e) => problem.set(Some(e)),
+            }
+            busy.set(false);
+        });
     };
     let remove = move |_| {
         licence::deactivate();
@@ -731,38 +771,45 @@ fn LicenceDialog() -> Element {
             div { class: "modal", onclick: move |e| e.stop_propagation(),
                 h2 { "TrackCut Pro" }
                 match &status {
-                    Status::Pro(l) => rsx! {
-                        p { "Licensed to " strong { "{l.email}" } "." }
-                        p { class: "dim", "Includes every update released until {l.updates_until}." }
+                    Status::Pro(a) => rsx! {
+                        p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
+                        p { class: "dim", "{a.credits.left} AI credits left this month. {a.renewal()}." }
                     },
-                    Status::Renew(l) => rsx! {
-                        p { "Licensed to " strong { "{l.email}" } "." }
+                    Status::NotPro(a) if !a.active => rsx! {
+                        p { "The subscription for " strong { "{a.email}" } " isn't active." }
+                        p { class: "match todo", "TrackCut runs as the free version. Renew it to have Pro again." }
+                    },
+                    Status::NotPro(a) => rsx! {
+                        p { "The " strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } " doesn't include TrackCut." }
+                        p { class: "match todo", "TrackCut runs as the free version. A plan with TrackCut makes it Pro." }
+                    },
+                    Status::Offline(a) => rsx! {
+                        p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
                         p { class: "match todo",
-                            "This version was released on {licence::release_date()}, after your updates ended on "
-                            "{l.updates_until}. Renew to use it, or keep using a version released before that day."
+                            "TrackCut hasn't been able to check the licence for a week, so it runs as the free version "
+                            "until it can. Check the connection, then check again."
                         }
                     },
-                    Status::Unavailable => rsx! {
-                        p { class: "dim", "This build of TrackCut can't check licences. Download it from mayorana.ch to use one." }
+                    Status::Unknown(_) => rsx! {
+                        p { class: "match todo", "The licence number on this computer isn't known. Check it against the email, or paste it again." }
                     },
                     Status::Free => rsx! {
                         p {
                             "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
-                            "TrackCut Pro exports all of them."
+                            "TrackCut Pro exports all of them. It comes with a monthly plan on mayorana.ch."
                         }
                         p { class: "dim",
-                            "Paste the licence key from the email you received after buying TrackCut Pro. "
-                            "It's checked on this computer; nothing is sent anywhere."
+                            "Paste the licence number from the email you received when you subscribed. "
+                            "It's checked with api0 now and once a day; Pro keeps working for a week without a connection."
                         }
                     },
                 }
-                if matches!(status, Status::Free | Status::Renew(_)) {
-                    textarea {
+                if asks_number {
+                    input {
                         class: "licence-key",
                         value: "{text}",
-                        rows: "4",
                         spellcheck: "false",
-                        placeholder: "eyJ2Ijox…",
+                        placeholder: "ABCDE-FGHJK-LMNPQ-RSTUV",
                         onmounted: move |e| async move {
                             let _ = e.set_focus(true).await;
                         },
@@ -787,20 +834,23 @@ fn LicenceDialog() -> Element {
                     p { class: "match todo", "{p}" }
                 }
                 div { class: "modal-actions",
-                    match &status {
-                        Status::Pro(_) | Status::Renew(_) => rsx! {
-                            button { class: "left", title: "Remove the licence from this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
-                        },
-                        _ => rsx! {},
+                    if status.licence().is_some() {
+                        button { class: "left", title: "Remove the licence from this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
+                    }
+                    if let (Some(number), false) = (status.licence().map(str::to_owned), asks_number) {
+                        button { disabled: busy(), title: "Change or cancel the plan on mayorana.ch", onclick: move |_| manage(number.clone()),
+                            "Manage subscription…"
+                        }
+                        button { disabled: busy(), onclick: check_again, "Check again" }
                     }
                     if !matches!(status, Status::Pro(_)) {
                         a { class: "button-link", href: "{licence::BUY_URL}", target: "_blank",
-                            if matches!(status, Status::Renew(_)) { "Renew…" } else { "Buy TrackCut Pro…" }
+                            if status.licence().is_some() { "Renew…" } else { "Buy TrackCut Pro…" }
                         }
                     }
-                    button { onclick: move |_| close(), if matches!(status, Status::Pro(_)) { "Close" } else { "Cancel" } }
-                    if matches!(status, Status::Free | Status::Renew(_)) {
-                        button { class: "primary", disabled: text.trim().is_empty(), onclick: move |_| activate(),
+                    button { onclick: move |_| close(), if asks_number { "Cancel" } else { "Close" } }
+                    if asks_number {
+                        button { class: "primary", disabled: text.trim().is_empty() || busy(), onclick: move |_| activate(),
                             "Activate"
                             kbd { "Enter" }
                         }

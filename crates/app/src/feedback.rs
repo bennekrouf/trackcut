@@ -8,8 +8,5 @@
 /// The contact form with the topic set and the app and version filled in, so a
 /// message says what it is about without the sender having to.
 pub fn contact_url() -> String {
-    format!(
-        "https://mayorana.ch/en/contact?service=tools&app=TrackCut&v={}",
-        env!("CARGO_PKG_VERSION")
-    )
+    format!("https://mayorana.ch/en/contact?service=tools&app=TrackCut&v={}", env!("CARGO_PKG_VERSION"))
 }

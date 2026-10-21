@@ -4,10 +4,10 @@ mod common;
 
 use common::*;
 use ebur128::{EbuR128, Mode};
+use std::sync::Arc;
 use trackcut_audio::loudness::analyze;
 use trackcut_audio::scan::scan;
 use trackcut_audio::source::open_source;
-use std::sync::Arc;
 
 #[test]
 fn range_loudness_matches_direct_measurement() {

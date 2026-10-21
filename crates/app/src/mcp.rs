@@ -16,9 +16,9 @@ use crate::exporting::export_now;
 use crate::review::{detect_once, keep_clear, suggest, tag, SNAP_SECS};
 use crate::state::{key_of, prefs};
 use serde_json::{json, Value};
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::io::{BufRead, Write};
 use trackcut_audio::scan::load_or_scan;
 use trackcut_audio::Scan;
 use trackcut_core::cutlist::Cutlist;
@@ -375,9 +375,9 @@ fn profile(v: &str) -> Result<Profile, String> {
             .map(|quality| Profile::Mp3Vbr { quality })
             .or_else(|| n.strip_prefix("mp3-").and_then(|k| k.parse().ok()).map(|kbps| Profile::Mp3Cbr { kbps })),
     };
-    parsed
-        .filter(|p| Profile::CHOICES.contains(p))
-        .ok_or(format!("no profile {v}; use original, flac, wav16, mp3-v0, mp3-v2, mp3-v4, mp3-320, mp3-256, mp3-192 or mp3-128"))
+    parsed.filter(|p| Profile::CHOICES.contains(p)).ok_or(format!(
+        "no profile {v}; use original, flac, wav16, mp3-v0, mp3-v2, mp3-v4, mp3-320, mp3-256, mp3-192 or mp3-128"
+    ))
 }
 
 fn normalize(v: &str) -> Result<Normalize, String> {
@@ -407,7 +407,11 @@ fn split_ids(args: &Value, key: &str, edit: &RecordingEdit) -> Result<Vec<u64>, 
     list.iter()
         .map(|v| {
             let id = v.as_u64().ok_or(format!("{key} holds split ids, which are numbers"))? as usize;
-            edit.splits.get(id).map(|s| s.at).ok_or(format!("no split {id}: it has {} (0 to {})", edit.splits.len(), edit.splits.len().saturating_sub(1)))
+            edit.splits.get(id).map(|s| s.at).ok_or(format!(
+                "no split {id}: it has {} (0 to {})",
+                edit.splits.len(),
+                edit.splits.len().saturating_sub(1)
+            ))
         })
         .collect()
 }
@@ -628,7 +632,10 @@ fn edit_splits(args: &Value) -> Result<Value, String> {
         let place = |secs: f64| -> Result<u64, String> {
             let at = (secs * rate as f64).round();
             if !(at > 0.0 && (at as u64) < total) {
-                return Err(format!("{secs} s is not inside the recording (0 to {})", fmt_precise(total as f64 / rate as f64)));
+                return Err(format!(
+                    "{secs} s is not inside the recording (0 to {})",
+                    fmt_precise(total as f64 / rate as f64)
+                ));
             }
             let at = at as u64;
             Ok(if snapping { detect::snap(&l.db, l.window, rate, at, SNAP_SECS) } else { at })
@@ -693,10 +700,8 @@ fn set_tracks(args: &Value) -> Result<Value, String> {
         let count = edit.splits.len() + 1;
         for c in &changes {
             let n = c["track"].as_u64().ok_or("each track needs its number")? as usize;
-            let meta = n
-                .checked_sub(1)
-                .and_then(|i| edit.track_meta_mut(i))
-                .ok_or(format!("no track {n}: it has {count}"))?;
+            let meta =
+                n.checked_sub(1).and_then(|i| edit.track_meta_mut(i)).ok_or(format!("no track {n}: it has {count}"))?;
             if let Some(title) = c["title"].as_str() {
                 meta.title = title.trim().to_owned();
             }
@@ -758,7 +763,9 @@ fn apply_cuts(args: &Value) -> Result<Value, String> {
     let edit = cutlist.recordings.get(&rec.key).cloned().unwrap_or_default();
     let total = scan.info.total_samples;
     if edit.skipped(total).is_empty() {
-        return Err("nothing is cut in this recording yet: no silence at the tracks' edges and no track left out".into());
+        return Err(
+            "nothing is cut in this recording yet: no silence at the tracks' edges and no track left out".into()
+        );
     }
     let (ranges, mut cleaned) = edit.cleaned(total);
     if ranges.is_empty() {

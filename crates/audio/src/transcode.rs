@@ -12,12 +12,12 @@ use anyhow::{anyhow, bail, Context, Result};
 use flacenc::component::BitRepr;
 use flacenc::error::Verify;
 use mp3lame_encoder::{Bitrate, Builder, FlushGap, InterleavedPcm, MonoPcm, Quality, VbrMode};
-use trackcut_core::export::Profile;
 use std::fs::File;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::Arc;
+use trackcut_core::export::Profile;
 
 /// Sample rates MP3 can carry; anything else is resampled by LAME.
 const MP3_RATES: [u32; 9] = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];

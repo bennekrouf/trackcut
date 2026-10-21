@@ -5,11 +5,11 @@
 //! timeline, which skips the AAC priming we decode (`trackcut_audio::mp4`).
 //! A video without sound gives clips and copies without sound.
 
-use trackcut_audio::export::Tags;
-use trackcut_core::export::VideoProfile;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use trackcut_audio::export::Tags;
+use trackcut_core::export::VideoProfile;
 
 /// Converts our sample frames into seconds on a video's timeline.
 #[derive(Clone, Copy, Debug)]

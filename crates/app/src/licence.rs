@@ -1,82 +1,170 @@
-//! The TrackCut Pro licence on this computer: the pasted key, kept in the config folder,
-//! and what it unlocks for this build. The check itself is offline, in
-//! `trackcut_core::license`.
+//! The TrackCut Pro licence on this computer: the licence number, kept in the config
+//! folder with api0's last answer about it, and the calls that ask api0 again. What the
+//! answer unlocks is `trackcut_core::license`.
+//!
+//! ```text
+//! GET  https://gateway.api0.ai/v1/licence          the plan, its apps, credits left
+//! POST https://gateway.api0.ai/v1/licence/portal   { url } to change or cancel it
+//! Authorization: Bearer <licence>
+//! X-Client-App: splitter
+//! ```
 
-use base64::Engine;
-use trackcut_core::license::{self, License, LicenseError};
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+pub use trackcut_core::license::Status;
+use trackcut_core::license::{self, Answer, Saved, PRODUCT};
 
 /// Where "Buy TrackCut Pro" leads.
 pub const BUY_URL: &str = "https://mayorana.ch/en/apps/trackcut";
 
-/// The public half of mayorana.ch's licence signing key (32 bytes, standard base64),
-/// built in by the release workflow from the `TRACKCUT_LICENSE_PUBLIC_KEY` variable.
-const PUBLIC_KEY: Option<&str> = option_env!("TRACKCUT_LICENSE_PUBLIC_KEY");
-
-/// This build's release date (`YYYY-MM-DD`), set by build.rs. Empty when unknown, which
-/// every licence covers.
-const RELEASE_DATE: &str = env!("TRACKCUT_RELEASE_DATE");
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Status {
-    /// No licence on this computer.
-    Free,
-    /// Licensed, and this build is covered.
-    Pro(License),
-    /// Licensed, but this build was released after the licence's updates ended: it keeps
-    /// unlocking the releases up to that day.
-    Renew(License),
-    /// A build without the public key (a local build): licences can't be checked.
-    Unavailable,
-}
-
-impl Status {
-    /// Whether exports write every track. A build that can't check licences isn't
-    /// limited either: that is a local build from source, or a release missing its key,
-    /// and neither should lock out someone who paid.
-    pub fn exports_all(&self) -> bool {
-        matches!(self, Status::Pro(_) | Status::Unavailable)
-    }
-}
-
-fn public_key() -> Option<[u8; 32]> {
-    let bytes = base64::engine::general_purpose::STANDARD.decode(PUBLIC_KEY?.trim()).ok()?;
-    bytes.try_into().ok()
-}
+const GATEWAY: &str = "https://gateway.api0.ai";
 
 fn file() -> Option<PathBuf> {
-    Some(dirs::config_dir()?.join("splitter").join("licence"))
+    Some(dirs::config_dir()?.join("splitter").join("licence.json"))
 }
 
-fn status_of(license: License) -> Status {
-    if license.covers(RELEASE_DATE) {
-        Status::Pro(license)
-    } else {
-        Status::Renew(license)
-    }
+fn now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// The licence saved on this computer, checked again at every start: a key that no longer
-/// verifies (the file was edited) counts as none.
-pub fn current() -> Status {
-    let Some(public) = public_key() else { return Status::Unavailable };
-    let Some(key) = file().and_then(|f| std::fs::read_to_string(f).ok()) else { return Status::Free };
-    match license::verify(&key, &public) {
-        Ok(l) => status_of(l),
-        Err(_) => Status::Free,
-    }
+fn load() -> Option<Saved> {
+    serde_json::from_str(&std::fs::read_to_string(file()?).ok()?).ok()
 }
 
-/// Checks `key` and, if it is a TrackCut licence, saves it for the next starts.
-pub fn activate(key: &str) -> Result<Status, String> {
-    let public = public_key().ok_or("This build of TrackCut can't check licences. Download it from mayorana.ch.")?;
-    let license = license::verify(key, &public).map_err(|e: LicenseError| e.to_string())?;
+fn save(saved: &Saved) -> Result<(), String> {
     let f = file().ok_or("No settings folder to keep the licence in.")?;
-    let key: String = key.chars().filter(|c| !c.is_whitespace()).collect();
+    let json = serde_json::to_vec_pretty(saved).map_err(|e| e.to_string())?;
+    // Written beside the target and renamed over it, so a crash can't leave half a file.
+    let tmp = f.with_extension("tmp");
     std::fs::create_dir_all(f.parent().unwrap())
-        .and_then(|_| std::fs::write(&f, key))
-        .map_err(|e| format!("The licence couldn't be saved: {e}"))?;
-    Ok(status_of(license))
+        .and_then(|_| std::fs::write(&tmp, json))
+        .and_then(|_| std::fs::rename(&tmp, &f))
+        .map_err(|e| format!("The licence couldn't be saved: {e}"))
+}
+
+/// The licence as of the last check, without asking api0.
+pub fn current() -> Status {
+    license::status_at(load().as_ref(), now())
+}
+
+/// Why a check didn't give an answer.
+enum CheckError {
+    /// api0 doesn't know this licence number.
+    Unknown,
+    /// Offline, api0 down, or an answer that made no sense.
+    Unreachable(String),
+}
+
+fn agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(20)))
+        .http_status_as_error(false)
+        .build()
+        .into()
+}
+
+fn ask(licence: &str) -> Result<Answer, CheckError> {
+    let mut resp = agent()
+        .get(format!("{GATEWAY}/v1/licence"))
+        .header("Authorization", format!("Bearer {licence}"))
+        .header("X-Client-App", PRODUCT)
+        .call()
+        .map_err(|e| CheckError::Unreachable(e.to_string()))?;
+    match resp.status().as_u16() {
+        200 => {
+            let body = resp.body_mut().read_to_string().map_err(|e| CheckError::Unreachable(e.to_string()))?;
+            serde_json::from_str(&body).map_err(|e| CheckError::Unreachable(e.to_string()))
+        }
+        401 => Err(CheckError::Unknown),
+        code => Err(CheckError::Unreachable(format!("api0 answered {code}"))),
+    }
+}
+
+/// Checks `typed` with api0 and, if api0 knows it, saves it. Blocking: call it off the UI
+/// thread.
+pub fn activate(typed: &str) -> Result<Status, String> {
+    let licence = license::normalise(typed)
+        .ok_or("This isn't a licence number. It has 20 letters and digits, like ABCDE-FGHJK-LMNPQ-RSTUV.")?;
+    let answer = match ask(&licence) {
+        Ok(a) => a,
+        Err(CheckError::Unknown) => return Err("This licence number isn't known. Check it against the email.".into()),
+        Err(CheckError::Unreachable(e)) => {
+            return Err(format!("The licence couldn't be checked ({e}). Check the connection and try again."))
+        }
+    };
+    let saved = Saved { licence, answer: Some(answer), checked: now() };
+    save(&saved)?;
+    Ok(license::status_at(Some(&saved), now()))
+}
+
+/// Checks the saved licence with api0 again, when `force`d or a day after the last check,
+/// and keeps the answer. Offline, the last answer stands. Blocking.
+pub fn refresh(force: bool) -> Status {
+    let Some(mut saved) = load() else { return Status::Free };
+    if !force && !license::check_due(&saved, now()) {
+        return license::status_at(Some(&saved), now());
+    }
+    match ask(&saved.licence) {
+        Ok(answer) => {
+            saved.answer = Some(answer);
+            saved.checked = now();
+            let _ = save(&saved);
+        }
+        Err(CheckError::Unknown) => {
+            saved.answer = None;
+            let _ = save(&saved);
+        }
+        Err(CheckError::Unreachable(_)) => {}
+    }
+    license::status_at(Some(&saved), now())
+}
+
+/// The address of the page where the subscription is changed or cancelled. Blocking.
+pub fn portal_url(licence: &str) -> Result<String, String> {
+    #[derive(serde::Deserialize)]
+    struct Portal {
+        url: String,
+    }
+    let failed = |e: String| format!("The subscription page couldn't be opened ({e}).");
+    let mut resp = agent()
+        .post(format!("{GATEWAY}/v1/licence/portal"))
+        .header("Authorization", format!("Bearer {licence}"))
+        .header("X-Client-App", PRODUCT)
+        .send_empty()
+        .map_err(|e| failed(e.to_string()))?;
+    if resp.status().as_u16() != 200 {
+        return Err(failed(format!("api0 answered {}", resp.status().as_u16())));
+    }
+    let body = resp.body_mut().read_to_string().map_err(|e| failed(e.to_string()))?;
+    serde_json::from_str::<Portal>(&body).map(|p| p.url).map_err(|e| failed(e.to_string()))
+}
+
+/// `refresh`, off the UI thread.
+pub async fn refresh_async(force: bool) -> Status {
+    tokio::task::spawn_blocking(move || refresh(force)).await.unwrap_or_else(|_| current())
+}
+
+/// `activate`, off the UI thread.
+pub async fn activate_async(typed: String) -> Result<Status, String> {
+    tokio::task::spawn_blocking(move || activate(&typed)).await.map_err(|e| e.to_string())?
+}
+
+/// `portal_url`, off the UI thread.
+pub async fn portal_url_async(licence: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || portal_url(&licence)).await.map_err(|e| e.to_string())?
+}
+
+/// Opens `url` in the default browser.
+pub fn open_url(url: &str) {
+    use std::process::Command;
+    let _ = if cfg!(target_os = "macos") {
+        Command::new("open").arg(url).spawn()
+    } else if cfg!(windows) {
+        Command::new("cmd").args(["/c", "start", "", url]).spawn()
+    } else {
+        Command::new("xdg-open").arg(url).spawn()
+    };
 }
 
 /// Removes the licence from this computer (to move it to another one).
@@ -84,9 +172,4 @@ pub fn deactivate() {
     if let Some(f) = file() {
         let _ = std::fs::remove_file(f);
     }
-}
-
-/// This build's release date, as shown next to a licence that needs renewing.
-pub fn release_date() -> &'static str {
-    RELEASE_DATE
 }

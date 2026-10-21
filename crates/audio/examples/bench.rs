@@ -2,10 +2,10 @@
 //!
 //!     cargo run -p trackcut-audio --release --example bench -- path/to/recording.mp3
 
-use trackcut_audio::scan::scan;
-use trackcut_audio::source::open_source;
 use std::sync::Arc;
 use std::time::Instant;
+use trackcut_audio::scan::scan;
+use trackcut_audio::source::open_source;
 
 fn main() {
     let path = std::path::PathBuf::from(std::env::args().nth(1).expect("usage: bench <file>"));

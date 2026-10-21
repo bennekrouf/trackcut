@@ -649,7 +649,7 @@ button.brand:hover { color: var(--accent); }
   border-radius: 3px;
   padding: 1px 5px;
 }
-.modal textarea.licence-key { word-break: break-all; user-select: text; -webkit-user-select: text; }
+.modal .licence-key { word-break: break-all; user-select: text; -webkit-user-select: text; }
 .modal-actions .left { margin-right: auto; }
 .button-link {
   color: var(--accent);

@@ -111,20 +111,18 @@ loads it again when another process wrote it and nothing is unsaved in the windo
 
 ## Pro licence
 
-Click **TrackCut** (top of the file list) to paste a TrackCut Pro licence key. The key is
-checked offline: api0's store signs it with an Ed25519 key when the Stripe Checkout is paid,
-and the app verifies it with the public half, built in from the `TRACKCUT_LICENSE_PUBLIC_KEY`
-repository variable (standard base64, 32 bytes) by the release workflow. A local build without
-it says it can't check licences. The key is saved to the config folder (`trackcut/licence`).
-
-A licence unlocks every release dated up to its `updates_until`; the build's date is
-`TRACKCUT_RELEASE_DATE` if set, else the date of the commit it's built from (see
-`crates/app/build.rs`).
+Click **TrackCut** (top of the file list) to paste the licence number of a mayorana.ch plan
+(`ABCDE-FGHJK-LMNPQ-RSTUV`). Pro is a monthly subscription: TrackCut asks api0
+(`GET https://gateway.api0.ai/v1/licence`, the licence as bearer token, `X-Client-App: splitter`)
+when it starts and then once a day, and keeps the answer in the config folder
+(`splitter/licence.json`). A plan makes TrackCut Pro when it is active and lists `splitter` (or
+`*`) among its products. Offline, Pro lasts 7 days after the last check that got through. The
+window shows the plan, the AI credits left and the renewal date; Manage subscription opens the
+Stripe page api0 returns from `POST /v1/licence/portal`.
 
 Without Pro an export writes the first 10 kept tracks of a recording (`FREE_TRACKS` in
 `crates/core/src/license.rs`); splitting and reviewing are never limited, and the tags of the
-tracks written keep the recording's real track count. A build without the public key isn't
-limited.
+tracks written keep the recording's real track count.
 
 ## Keys
 
