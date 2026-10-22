@@ -37,7 +37,7 @@ fn main() {
         .with_data_directory(webview_data_dir())
         .with_window(
             WindowBuilder::new()
-                .with_title(views::TITLE)
+                .with_title(views::window_title(&licence::current(), None))
                 .with_inner_size(LogicalSize::new(1280.0, 820.0))
                 .with_window_icon(window_icon()),
         )

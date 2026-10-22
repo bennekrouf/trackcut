@@ -19,8 +19,16 @@ use trackcut_core::tracklist;
 use trackcut_core::Status;
 
 const CSS: &str = include_str!("../assets/style.css");
-/// Window title: the name and the running version, as in the other mayorana apps.
-pub const TITLE: &str = concat!("TrackCut ", env!("CARGO_PKG_VERSION"));
+/// The native title bar, as in every mayorana app: name, version and licence,
+/// then the selected recording after a dash.
+pub fn window_title(licence: &crate::licence::Status, recording: Option<&str>) -> String {
+    let mut title = format!("TrackCut {}{}", env!("CARGO_PKG_VERSION"), licence.title_badge());
+    if let Some(name) = recording {
+        title.push_str(" \u{2014} ");
+        title.push_str(name);
+    }
+    title
+}
 /// Waveform resolution; the SVG is stretched to the element width.
 const COLS: usize = 1600;
 /// How close (in pixels) a click must be to grab a split marker.
@@ -367,14 +375,11 @@ fn Sidebar() -> Element {
         .filter(|r| cutlist.recordings.get(&key_of(&r.path)).is_some_and(|e| e.status == Status::Done))
         .count();
 
-    // Keep the selected file visible, and show it in the window title.
+    // Keep the selected file visible, and show it, and the licence, in the window title.
     use_effect(move || {
         let i = (app.selected)();
         let name = i.and_then(|i| app.recordings.peek().get(i).map(|r| r.name()));
-        dioxus::desktop::window().set_title(&match name {
-            Some(n) => format!("{n} — {TITLE}"),
-            None => TITLE.into(),
-        });
+        dioxus::desktop::window().set_title(&window_title(&app.licence.read(), name.as_deref()));
         document::eval(
             "requestAnimationFrame(() => document.querySelector('.item.selected')?.scrollIntoView({block: 'nearest'}))",
         );
