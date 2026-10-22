@@ -142,6 +142,19 @@ pub enum Status {
 }
 
 impl Status {
+    /// What the window title adds after "TrackCut <version>", as GitAgent's does:
+    /// Pro, or a Pro that has lapsed (unpaid, or no check for the grace period).
+    pub fn title_badge(&self) -> &'static str {
+        match self {
+            Status::Pro(_) => " \u{b7} \u{2726} Pro",
+            Status::Offline(_) => " \u{b7} Pro inactive",
+            Status::NotPro(a) if !a.active && a.products.iter().any(|p| p == PRODUCT || p == "*") => {
+                " \u{b7} Pro inactive"
+            }
+            _ => "",
+        }
+    }
+
     /// Whether exports write every track.
     pub fn exports_all(&self) -> bool {
         matches!(self, Status::Pro(_))
