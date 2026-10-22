@@ -15,6 +15,14 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Changed
+
+- The window title now shows your licence status next to the app name and
+  version: a Pro marker when Pro is active, or Pro inactive when it has lapsed.
+  The selected recording still appears after a dash.
+
 ## [0.1.28] - 2026-10-22
 
 ### Changed
