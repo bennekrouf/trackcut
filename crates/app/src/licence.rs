@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use trackcut_core::license::Status;
-use trackcut_core::license::{self, Answer, FreeError, Saved, PRODUCT};
+use trackcut_core::license::{self, Answer, FreeError, Saved, Shared, PRODUCT};
 
 /// Where "Buy TrackCut Pro" leads.
 pub const BUY_URL: &str = "https://mayorana.ch/en/apps/trackcut";
@@ -28,8 +28,51 @@ fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-fn load() -> Option<Saved> {
+fn load_own() -> Option<Saved> {
     serde_json::from_str(&std::fs::read_to_string(file()?).ok()?).ok()
+}
+
+/// The licence file every Mayorana app shares: `~/Library/Application Support/mayorana/licence`
+/// on a Mac, `%APPDATA%\mayorana\licence` on Windows, `~/.config/mayorana/licence` on Linux.
+fn shared_file() -> Option<PathBuf> {
+    Some(dirs::config_dir()?.join("mayorana").join("licence"))
+}
+
+fn load_shared() -> Shared {
+    match shared_file().map(std::fs::read_to_string) {
+        Some(Ok(text)) => license::shared_from(&text),
+        _ => Shared::Missing,
+    }
+}
+
+/// Writes `text` as the shared licence: a number, or nothing once removed.
+fn save_shared(text: &str) {
+    let Some(f) = shared_file() else { return };
+    // Named after this app, so two apps writing at once don't share it.
+    let tmp = f.with_extension(format!("{PRODUCT}.tmp"));
+    let _ = std::fs::create_dir_all(f.parent().unwrap()).and_then(|_| std::fs::write(&tmp, text)).and_then(|_| {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+        }
+        std::fs::rename(&tmp, &f)
+    });
+}
+
+/// This app's licence, or the one typed in another Mayorana app.
+fn load() -> Option<Saved> {
+    let shared = load_shared();
+    if shared == Shared::Removed {
+        if let Some(f) = file() {
+            let _ = std::fs::remove_file(f);
+        }
+    }
+    let (saved, share) = license::reconcile(shared, load_own());
+    if let (Some(saved), true) = (&saved, share) {
+        save_shared(&saved.licence);
+    }
+    saved
 }
 
 fn save(saved: &Saved) -> Result<(), String> {
@@ -95,6 +138,7 @@ pub fn activate(typed: &str) -> Result<Status, String> {
     };
     let saved = Saved { licence, answer: Some(answer), checked: now() };
     save(&saved)?;
+    save_shared(&saved.licence);
     Ok(license::status_at(Some(&saved), now()))
 }
 
@@ -192,9 +236,11 @@ pub fn open_url(url: &str) {
     };
 }
 
-/// Removes the licence from this computer (to move it to another one).
+/// Removes the licence from this computer (to move it to another one), for every Mayorana
+/// app on it.
 pub fn deactivate() {
     if let Some(f) = file() {
         let _ = std::fs::remove_file(f);
     }
+    save_shared("");
 }
