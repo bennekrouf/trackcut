@@ -900,7 +900,7 @@ fn LicenceDialog() -> Element {
                 }
                 div { class: "modal-actions",
                     if status.licence().is_some() {
-                        button { class: "left", title: "Remove the licence from this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
+                        button { class: "left", title: "Removes the licence from every Mayorana app on this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
                     }
                     if let (Some(number), false) = (status.licence().map(str::to_owned), asks_number) {
                         button { disabled: busy(), title: "Change or cancel the plan on mayorana.ch", onclick: move |_| manage(number.clone()),
