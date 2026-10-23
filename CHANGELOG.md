@@ -15,6 +15,18 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Fixed
+
+- On company networks that inspect secure connections (Zscaler and similar
+  proxies), activating TrackCut Pro failed with "invalid peer certificate:
+  UnknownIssuer". TrackCut now trusts the certificates your computer trusts,
+  as your browser does, so the licence check, update check and the yt-dlp,
+  Deno and ffmpeg downloads work there too. If the proxy's certificate isn't
+  installed on the computer, the message now says so and suggests asking IT
+  to install it.
+
 ## [0.1.29] - 2026-10-22
 
 ### Changed

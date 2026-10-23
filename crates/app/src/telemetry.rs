@@ -518,7 +518,7 @@ async fn http_get(url: &str) -> bool {
     let url = url.to_string();
     tokio::task::spawn_blocking(move || {
         let agent: ureq::Agent =
-            ureq::Agent::config_builder().timeout_global(Some(SEND_TIMEOUT)).http_status_as_error(false).build().into();
+            crate::http::config().timeout_global(Some(SEND_TIMEOUT)).http_status_as_error(false).build().into();
         agent.get(&url).header("User-Agent", &user_agent()).call().map(|r| r.status().is_success()).unwrap_or(false)
     })
     .await
