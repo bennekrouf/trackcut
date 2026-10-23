@@ -4,6 +4,7 @@
   --panel-2: #27272c;
   --line: #34343b;
   --text: #e7e7ea;
+  --mono: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --dim: #9a9aa3;
   --accent: #5eb3f6;
   --wave: #7c8aa0;
@@ -140,9 +141,9 @@ button {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font: inherit;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font: 12px var(--mono);
 }
 button:hover { border-color: var(--dim); }
 button.primary { border-color: var(--accent); color: var(--accent); }
@@ -159,6 +160,7 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .file-name { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 38px; /* clear of the theme toggle */ }
 .file-name .rename { visibility: visible; }
 .file-name .applying { font-size: 12px; white-space: nowrap; }
+.file-name > .primary { flex-shrink: 0; white-space: nowrap; }
 .file-name .hint { font-size: 12px; margin-left: 6px; white-space: nowrap; }
 .name-input { font-size: 17px; font-weight: 600; flex: 1; max-width: 640px; }
 .title { margin: 0; font-size: 17px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -488,7 +490,7 @@ button:disabled { opacity: 0.45; }
   -webkit-user-select: text;
 }
 .modal input.url:focus { outline: none; border-color: var(--accent); }
-.segmented { display: flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.segmented { display: flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .segmented button { border: 0; border-radius: 0; background: transparent; color: var(--dim); padding: 4px 14px; }
 .segmented button + button { border-left: 1px solid var(--line); }
 .segmented button.on { background: var(--panel-2); color: var(--text); }
