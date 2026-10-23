@@ -12,6 +12,7 @@
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::http;
 pub use trackcut_core::license::Status;
 use trackcut_core::license::{self, Answer, FreeError, Saved, Shared, PRODUCT};
 
@@ -97,14 +98,21 @@ enum CheckError {
     Unknown,
     /// Offline, api0 down, or an answer that made no sense.
     Unreachable(String),
+    /// The connection came with a certificate this computer doesn't trust: a company proxy's,
+    /// usually.
+    Untrusted(String),
+}
+
+fn unreachable(e: ureq::Error) -> CheckError {
+    if http::untrusted(&e) {
+        CheckError::Untrusted(e.to_string())
+    } else {
+        CheckError::Unreachable(e.to_string())
+    }
 }
 
 fn agent() -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(20)))
-        .http_status_as_error(false)
-        .build()
-        .into()
+    http::config().timeout_global(Some(Duration::from_secs(20))).http_status_as_error(false).build().into()
 }
 
 fn ask(licence: &str) -> Result<Answer, CheckError> {
@@ -113,7 +121,7 @@ fn ask(licence: &str) -> Result<Answer, CheckError> {
         .header("Authorization", format!("Bearer {licence}"))
         .header("X-Client-App", PRODUCT)
         .call()
-        .map_err(|e| CheckError::Unreachable(e.to_string()))?;
+        .map_err(unreachable)?;
     match resp.status().as_u16() {
         200 => {
             let body = resp.body_mut().read_to_string().map_err(|e| CheckError::Unreachable(e.to_string()))?;
@@ -134,6 +142,9 @@ pub fn activate(typed: &str) -> Result<Status, String> {
         Err(CheckError::Unknown) => return Err("This licence number isn't known. Check it against the email.".into()),
         Err(CheckError::Unreachable(e)) => {
             return Err(format!("The licence couldn't be checked ({e}). Check the connection and try again."))
+        }
+        Err(CheckError::Untrusted(e)) => {
+            return Err(format!("The licence couldn't be checked ({e}). {}", http::UNTRUSTED_HINT))
         }
     };
     let saved = Saved { licence, answer: Some(answer), checked: now() };
@@ -159,7 +170,7 @@ pub fn refresh(force: bool) -> Status {
             saved.answer = None;
             let _ = save(&saved);
         }
-        Err(CheckError::Unreachable(_)) => {}
+        Err(CheckError::Unreachable(_) | CheckError::Untrusted(_)) => {}
     }
     license::status_at(Some(&saved), now())
 }
@@ -176,7 +187,7 @@ pub fn portal_url(licence: &str) -> Result<String, String> {
         .header("Authorization", format!("Bearer {licence}"))
         .header("X-Client-App", PRODUCT)
         .send_empty()
-        .map_err(|e| failed(e.to_string()))?;
+        .map_err(|e| failed(http::describe(&e)))?;
     if resp.status().as_u16() != 200 {
         return Err(failed(format!("api0 answered {}", resp.status().as_u16())));
     }
@@ -211,7 +222,7 @@ pub fn request_free_credits(email: &str) -> Result<String, FreeError> {
         .header("X-Client-App", PRODUCT)
         .header("Content-Type", "application/json")
         .send(serde_json::json!({ "email": email.trim() }).to_string())
-        .map_err(|e| failed(e.to_string()))?;
+        .map_err(|e| failed(http::describe(&e)))?;
     let status = resp.status().as_u16();
     let body = resp.body_mut().read_to_string().unwrap_or_default();
     license::free_reply(status, &body)

@@ -6,6 +6,7 @@ mod cleaning;
 mod download;
 mod exporting;
 mod feedback;
+mod http;
 mod licence;
 mod mcp;
 mod mcp_panel;
