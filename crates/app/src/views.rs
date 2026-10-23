@@ -799,130 +799,135 @@ fn LicenceDialog() -> Element {
     rsx! {
         div { class: "modal-backdrop", onclick: move |_| close(),
             div { class: "modal", onclick: move |e| e.stop_propagation(),
-                h2 { "TrackCut Pro" }
-                match &status {
-                    Status::Pro(a) => rsx! {
-                        p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
-                        p { class: "dim", "{a.credits.left} AI credits left this month. {a.renewal()}." }
-                    },
-                    Status::NotPro(a) if a.is_free() => rsx! {
-                        p { "Free — " strong { "{a.credits.left} AI credits" } " left this month, for " strong { "{a.email}" } ". {a.renewal()}." }
-                        p { class: "dim",
-                            "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
-                            "TrackCut Pro exports all of them; it comes with a monthly plan on mayorana.ch."
-                        }
-                    },
-                    Status::NotPro(a) if !a.active => rsx! {
-                        p { "The subscription for " strong { "{a.email}" } " isn't active." }
-                        p { class: "match todo", "TrackCut runs as the free version. Renew it to have Pro again." }
-                    },
-                    Status::NotPro(a) => rsx! {
-                        p { "The " strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } " doesn't include TrackCut." }
-                        p { class: "match todo", "TrackCut runs as the free version. A plan with TrackCut makes it Pro." }
-                    },
-                    Status::Offline(a) => rsx! {
-                        p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
-                        p { class: "match todo",
-                            "TrackCut hasn't been able to check the licence for a week, so it runs as the free version "
-                            "until it can. Check the connection, then check again."
-                        }
-                    },
-                    Status::Unknown(_) => rsx! {
-                        p { class: "match todo", "The licence number on this computer isn't known. Check it against the email, or paste it again." }
-                    },
-                    Status::Free => rsx! {
-                        p {
-                            "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
-                            "TrackCut Pro exports all of them. It comes with a monthly plan on mayorana.ch."
-                        }
-                        p { class: "dim",
-                            "Paste the licence number from the email you received when you subscribed. "
-                            "It's checked with api0 now and once a day; Pro keeps working for a week without a connection."
-                        }
-                    },
+                div { class: "modal-head",
+                    h2 { "TrackCut Pro" }
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
                 }
-                if asks_number {
-                    input {
-                        class: "licence-key",
-                        value: "{text}",
-                        spellcheck: "false",
-                        placeholder: "ABCDE-FGHJK-LMNPQ-RSTUV",
-                        onmounted: move |e| async move {
-                            let _ = e.set_focus(true).await;
+                div { class: "modal-body",
+                    match &status {
+                        Status::Pro(a) => rsx! {
+                            p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
+                            p { class: "dim", "{a.credits.left} AI credits left this month. {a.renewal()}." }
                         },
-                        oninput: move |e| {
-                            problem.set(None);
-                            dialog.set(Some(e.value()));
+                        Status::NotPro(a) if a.is_free() => rsx! {
+                            p { "Free — " strong { "{a.credits.left} AI credits" } " left this month, for " strong { "{a.email}" } ". {a.renewal()}." }
+                            p { class: "dim",
+                                "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
+                                "TrackCut Pro exports all of them; it comes with a monthly plan on mayorana.ch."
+                            }
                         },
-                        onkeydown: move |e| {
-                            e.stop_propagation();
-                            match e.key() {
-                                Key::Escape => close(),
-                                Key::Enter => {
-                                    e.prevent_default();
-                                    activate();
-                                }
-                                _ => {}
+                        Status::NotPro(a) if !a.active => rsx! {
+                            p { "The subscription for " strong { "{a.email}" } " isn't active." }
+                            p { class: "match todo", "TrackCut runs as the free version. Renew it to have Pro again." }
+                        },
+                        Status::NotPro(a) => rsx! {
+                            p { "The " strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } " doesn't include TrackCut." }
+                            p { class: "match todo", "TrackCut runs as the free version. A plan with TrackCut makes it Pro." }
+                        },
+                        Status::Offline(a) => rsx! {
+                            p { strong { "{a.plan.name}" } " plan for " strong { "{a.email}" } "." }
+                            p { class: "match todo",
+                                "TrackCut hasn't been able to check the licence for a week, so it runs as the free version "
+                                "until it can. Check the connection, then check again."
+                            }
+                        },
+                        Status::Unknown(_) => rsx! {
+                            p { class: "match todo", "The licence number on this computer isn't known. Check it against the email, or paste it again." }
+                        },
+                        Status::Free => rsx! {
+                            p {
+                                "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of each recording. "
+                                "TrackCut Pro exports all of them. It comes with a monthly plan on mayorana.ch."
+                            }
+                            p { class: "dim",
+                                "Paste the licence number from the email you received when you subscribed. "
+                                "It's checked with api0 now and once a day; Pro keeps working for a week without a connection."
                             }
                         },
                     }
-                }
-                if offers_free {
-                    div { class: "free-credits",
-                        p { class: "dim", "No plan? Get free AI credits every month, without Pro. The licence number comes by email." }
-                        div { class: "free-row",
-                            input {
-                                class: "licence-key",
-                                r#type: "email",
-                                spellcheck: "false",
-                                placeholder: "you@example.com",
-                                value: "{free_email}",
-                                oninput: move |e| {
-                                    let mut free_email = free_email;
-                                    free_email.set(e.value());
-                                },
-                                onkeydown: move |e: KeyboardEvent| {
-                                    e.stop_propagation();
-                                    match e.key() {
-                                        Key::Escape => close(),
-                                        Key::Enter => {
-                                            e.prevent_default();
-                                            ask_free();
-                                        }
-                                        _ => {}
-                                    }
-                                },
-                            }
-                            button { disabled: free_email.read().trim().is_empty() || busy(), onclick: move |_| ask_free(), "Get free AI credits" }
-                        }
-                        if let Some(n) = free_note() {
-                            p { class: "dim", "{n}" }
-                        }
-                    }
-                }
-                if let Some(p) = problem() {
-                    p { class: "match todo", "{p}" }
-                }
-                div { class: "modal-actions",
-                    if status.licence().is_some() {
-                        button { class: "left", title: "Removes the licence from every Mayorana app on this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
-                    }
-                    if let (Some(number), false) = (status.licence().map(str::to_owned), asks_number) {
-                        button { disabled: busy(), title: "Change or cancel the plan on mayorana.ch", onclick: move |_| manage(number.clone()),
-                            "Manage subscription…"
-                        }
-                        button { disabled: busy(), onclick: check_again, "Check again" }
-                    }
-                    if !matches!(status, Status::Pro(_)) {
-                        a { class: "button-link", href: "{licence::BUY_URL}", target: "_blank",
-                            if status.licence().is_some() && status.free_credits().is_none() { "Renew…" } else { "Buy TrackCut Pro…" }
-                        }
-                    }
-                    button { onclick: move |_| close(), if asks_number { "Cancel" } else { "Close" } }
                     if asks_number {
-                        button { class: "primary", disabled: text.trim().is_empty() || busy(), onclick: move |_| activate(),
-                            "Activate"
-                            kbd { "Enter" }
+                        input {
+                            class: "licence-key",
+                            value: "{text}",
+                            spellcheck: "false",
+                            placeholder: "ABCDE-FGHJK-LMNPQ-RSTUV",
+                            onmounted: move |e| async move {
+                                let _ = e.set_focus(true).await;
+                            },
+                            oninput: move |e| {
+                                problem.set(None);
+                                dialog.set(Some(e.value()));
+                            },
+                            onkeydown: move |e| {
+                                e.stop_propagation();
+                                match e.key() {
+                                    Key::Escape => close(),
+                                    Key::Enter => {
+                                        e.prevent_default();
+                                        activate();
+                                    }
+                                    _ => {}
+                                }
+                            },
+                        }
+                    }
+                    if offers_free {
+                        div { class: "free-credits",
+                            p { class: "dim", "No plan? Get free AI credits every month, without Pro. The licence number comes by email." }
+                            div { class: "free-row",
+                                input {
+                                    class: "licence-key",
+                                    r#type: "email",
+                                    spellcheck: "false",
+                                    placeholder: "you@example.com",
+                                    value: "{free_email}",
+                                    oninput: move |e| {
+                                        let mut free_email = free_email;
+                                        free_email.set(e.value());
+                                    },
+                                    onkeydown: move |e: KeyboardEvent| {
+                                        e.stop_propagation();
+                                        match e.key() {
+                                            Key::Escape => close(),
+                                            Key::Enter => {
+                                                e.prevent_default();
+                                                ask_free();
+                                            }
+                                            _ => {}
+                                        }
+                                    },
+                                }
+                                button { disabled: free_email.read().trim().is_empty() || busy(), onclick: move |_| ask_free(), "Get free AI credits" }
+                            }
+                            if let Some(n) = free_note() {
+                                p { class: "dim", "{n}" }
+                            }
+                        }
+                    }
+                    if let Some(p) = problem() {
+                        p { class: "match todo", "{p}" }
+                    }
+                    div { class: "modal-actions",
+                        if status.licence().is_some() {
+                            button { class: "left", title: "Removes the licence from every Mayorana app on this computer, e.g. to use it on another one", onclick: remove, "Remove from this computer" }
+                        }
+                        if let (Some(number), false) = (status.licence().map(str::to_owned), asks_number) {
+                            button { disabled: busy(), title: "Change or cancel the plan on mayorana.ch", onclick: move |_| manage(number.clone()),
+                                "Manage subscription…"
+                            }
+                            button { disabled: busy(), onclick: check_again, "Check again" }
+                        }
+                        if !matches!(status, Status::Pro(_)) {
+                            a { class: "button-link", href: "{licence::BUY_URL}", target: "_blank",
+                                if status.licence().is_some() && status.free_credits().is_none() { "Renew…" } else { "Buy TrackCut Pro…" }
+                            }
+                        }
+                        button { onclick: move |_| close(), if asks_number { "Cancel" } else { "Close" } }
+                        if asks_number {
+                            button { class: "primary", disabled: text.trim().is_empty() || busy(), onclick: move |_| activate(),
+                                "Activate"
+                                kbd { "Enter" }
+                            }
                         }
                     }
                 }
@@ -966,16 +971,21 @@ fn DeleteDialog() -> Element {
                         _ => {}
                     }
                 },
-                h2 { "Move to the Trash?" }
-                p { class: "delete-name", "{name}" }
-                p { class: "dim",
-                    "The file goes to the system Trash, so you can still restore it from there."
-                    if edits { " Its splits and titles in TrackCut are removed." }
-                    " Tracks you already exported are not touched."
+                div { class: "modal-head",
+                    h2 { "Move to the Trash?" }
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
                 }
-                div { class: "modal-actions",
-                    button { onclick: move |_| close(), "Cancel" kbd { "Esc" } }
-                    button { class: "danger", onclick: move |_| confirm(), "Move to Trash" kbd { "Enter" } }
+                div { class: "modal-body",
+                    p { class: "delete-name", "{name}" }
+                    p { class: "dim",
+                        "The file goes to the system Trash, so you can still restore it from there."
+                        if edits { " Its splits and titles in TrackCut are removed." }
+                        " Tracks you already exported are not touched."
+                    }
+                    div { class: "modal-actions",
+                        button { onclick: move |_| close(), "Cancel" kbd { "Esc" } }
+                        button { class: "danger", onclick: move |_| confirm(), "Move to Trash" kbd { "Enter" } }
+                    }
                 }
             }
         }
@@ -1094,50 +1104,55 @@ fn UrlDialog() -> Element {
     rsx! {
         div { class: "modal-backdrop", onclick: move |_| close(),
             div { class: "modal", onclick: move |e| e.stop_propagation(),
-                h2 { "Open from URL" }
-                div { class: "segmented",
-                    for (k, label) in [(crate::download::Kind::Audio, "Audio"), (crate::download::Kind::Video, "Video")] {
-                        button {
-                            key: "{label}",
-                            class: if kind() == k { "on" } else { "" },
-                            onclick: move |_| kind.set(k),
-                            "{label}"
+                div { class: "modal-head",
+                    h2 { "Open from URL" }
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
+                }
+                div { class: "modal-body",
+                    div { class: "segmented",
+                        for (k, label) in [(crate::download::Kind::Audio, "Audio"), (crate::download::Kind::Video, "Video")] {
+                            button {
+                                key: "{label}",
+                                class: if kind() == k { "on" } else { "" },
+                                onclick: move |_| kind.set(k),
+                                "{label}"
+                            }
                         }
                     }
-                }
-                p { class: "dim",
-                    match kind() {
-                        crate::download::Kind::Audio => "The audio is downloaded, converted to WAV and saved in ",
-                        crate::download::Kind::Video => "The video is downloaded as MP4 (H.264, up to 1080p) and saved in ",
-                    }
-                    "{dir.display()}. "
-                    "Works with YouTube and most other video sites. "
-                    "The first time, the downloader (yt-dlp, about 75 MB) is set up automatically."
-                }
-                input {
-                    class: "url",
-                    // Uncontrolled: binding `value` makes fast typing drop characters on re-render.
-                    r#type: "url",
-                    placeholder: "https://www.youtube.com/watch?v=…",
-                    spellcheck: "false",
-                    onmounted: move |e| async move {
-                        let _ = e.set_focus(true).await;
-                    },
-                    oninput: move |e| dialog.set(Some(e.value())),
-                    onkeydown: move |e| {
-                        e.stop_propagation();
-                        match e.key() {
-                            Key::Escape => close(),
-                            Key::Enter => go(),
-                            _ => {}
+                    p { class: "dim",
+                        match kind() {
+                            crate::download::Kind::Audio => "The audio is downloaded, converted to WAV and saved in ",
+                            crate::download::Kind::Video => "The video is downloaded as MP4 (H.264, up to 1080p) and saved in ",
                         }
-                    },
-                }
-                div { class: "modal-actions",
-                    button { onclick: move |_| close(), "Cancel" }
-                    button { class: "primary", disabled: text.trim().is_empty(), onclick: move |_| go(),
-                        "Download"
-                        kbd { "Enter" }
+                        "{dir.display()}. "
+                        "Works with YouTube and most other video sites. "
+                        "The first time, the downloader (yt-dlp, about 75 MB) is set up automatically."
+                    }
+                    input {
+                        class: "url",
+                        // Uncontrolled: binding `value` makes fast typing drop characters on re-render.
+                        r#type: "url",
+                        placeholder: "https://www.youtube.com/watch?v=…",
+                        spellcheck: "false",
+                        onmounted: move |e| async move {
+                            let _ = e.set_focus(true).await;
+                        },
+                        oninput: move |e| dialog.set(Some(e.value())),
+                        onkeydown: move |e| {
+                            e.stop_propagation();
+                            match e.key() {
+                                Key::Escape => close(),
+                                Key::Enter => go(),
+                                _ => {}
+                            }
+                        },
+                    }
+                    div { class: "modal-actions",
+                        button { onclick: move |_| close(), "Cancel" }
+                        button { class: "primary", disabled: text.trim().is_empty(), onclick: move |_| go(),
+                            "Download"
+                            kbd { "Enter" }
+                        }
                     }
                 }
             }
@@ -2067,45 +2082,50 @@ fn PasteDialog() -> Element {
     rsx! {
         div { class: "modal-backdrop", onclick: move |_| close(),
             div { class: "modal", onclick: move |e| e.stop_propagation(),
-                h2 { "Paste tracklist" }
-                p { class: "dim",
-                    "One title per line. Track numbers, timestamps and durations are removed. "
-                    "Titles go to the kept tracks in order."
+                div { class: "modal-head",
+                    h2 { "Paste tracklist" }
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
                 }
-                textarea {
-                    value: "{text}",
-                    rows: "10",
-                    placeholder: "1. Intro\n2. First song (4:12)\n…",
-                    onmounted: move |e| async move {
-                        let _ = e.set_focus(true).await;
-                    },
-                    oninput: move |e| paste.set(Some(e.value())),
-                    onkeydown: move |e| {
-                        e.stop_propagation();
-                        let m = e.modifiers();
-                        match e.key() {
-                            Key::Escape => close(),
-                            Key::Enter if m.meta() || m.ctrl() => apply(),
-                            _ => {}
-                        }
-                    },
-                }
-                div { class: if titles.len() == kept { "match ok" } else { "match todo" },
-                    "{titles.len()} titles for {kept} kept tracks"
-                    if titles.len() > kept { " — the extra titles will be ignored" }
-                    if titles.len() < kept && !titles.is_empty() { " — the last tracks keep their titles" }
-                }
-                ol { class: "preview",
-                    for (i, t) in preview {
-                        li { key: "{i}", "{t}" }
+                div { class: "modal-body",
+                    p { class: "dim",
+                        "One title per line. Track numbers, timestamps and durations are removed. "
+                        "Titles go to the kept tracks in order."
                     }
-                    if titles.len() > 8 { li { class: "dim", "…" } }
-                }
-                div { class: "modal-actions",
-                    button { onclick: move |_| close(), "Cancel" }
-                    button { class: "primary", disabled: titles.is_empty(), onclick: move |_| apply(),
-                        "Apply titles"
-                        kbd { "⌘Enter" }
+                    textarea {
+                        value: "{text}",
+                        rows: "10",
+                        placeholder: "1. Intro\n2. First song (4:12)\n…",
+                        onmounted: move |e| async move {
+                            let _ = e.set_focus(true).await;
+                        },
+                        oninput: move |e| paste.set(Some(e.value())),
+                        onkeydown: move |e| {
+                            e.stop_propagation();
+                            let m = e.modifiers();
+                            match e.key() {
+                                Key::Escape => close(),
+                                Key::Enter if m.meta() || m.ctrl() => apply(),
+                                _ => {}
+                            }
+                        },
+                    }
+                    div { class: if titles.len() == kept { "match ok" } else { "match todo" },
+                        "{titles.len()} titles for {kept} kept tracks"
+                        if titles.len() > kept { " — the extra titles will be ignored" }
+                        if titles.len() < kept && !titles.is_empty() { " — the last tracks keep their titles" }
+                    }
+                    ol { class: "preview",
+                        for (i, t) in preview {
+                            li { key: "{i}", "{t}" }
+                        }
+                        if titles.len() > 8 { li { class: "dim", "…" } }
+                    }
+                    div { class: "modal-actions",
+                        button { onclick: move |_| close(), "Cancel" }
+                        button { class: "primary", disabled: titles.is_empty(), onclick: move |_| apply(),
+                            "Apply titles"
+                            kbd { "⌘Enter" }
+                        }
                     }
                 }
             }

@@ -148,9 +148,8 @@ fn run(
     std::fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
     log(format!("Running yt-dlp (formats {}) into {}", kind.formats(), dir.display()));
 
-    let mut cmd = tools::command(&tools.yt_dlp);
-    cmd.arg("--ignore-config")
-        .args(["--no-playlist", "--newline", "--progress", "--no-colors"])
+    let mut cmd = tools::yt_dlp_command(&tools.yt_dlp);
+    cmd.args(["--no-playlist", "--newline", "--progress", "--no-colors"])
         .arg("--js-runtimes")
         .arg(format!("deno:{}", tools.deno.display()))
         // Formats symphonia decodes (and, for a video, the web view plays).
