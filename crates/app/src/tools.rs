@@ -35,6 +35,18 @@ pub fn dir() -> PathBuf {
 }
 
 /// A command that doesn't open a console window next to the app on Windows.
+/// Flags every yt-dlp run takes. On Windows, the system's certificate store in place of
+/// yt-dlp's own bundle: a network that inspects HTTPS (Zscaler and the like) signs with a
+/// root the company puts in the Windows store, which the bundle has never heard of.
+pub fn yt_dlp_command(program: &Path) -> Command {
+    let mut cmd = command(program);
+    cmd.arg("--ignore-config");
+    if cfg!(windows) {
+        cmd.args(["--compat-options", "no-certifi"]);
+    }
+    cmd
+}
+
 pub fn command(program: &Path) -> Command {
     #[allow(unused_mut)]
     let mut cmd = Command::new(program);
@@ -83,7 +95,7 @@ pub fn ensure(dir: &Path, progress: &mut dyn FnMut(f32), cancelled: &dyn Fn() ->
     }
     if missing == 0 && update_due(dir) {
         // Best effort: on failure (offline, rate limited) the installed version is used.
-        let _ = command(&tools.yt_dlp).args(["-U", "--ignore-config"]).output();
+        let _ = yt_dlp_command(&tools.yt_dlp).arg("-U").output();
         stamp_checked(dir);
     }
     Ok(tools)

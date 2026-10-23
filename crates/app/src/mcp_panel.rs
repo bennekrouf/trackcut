@@ -67,51 +67,56 @@ pub fn McpDialog() -> Element {
                         close();
                     }
                 },
-                h2 { "Use TrackCut from Claude" }
-                p { class: "dim",
-                    "Ask Claude to split your recordings: find the tracks, confirm or move splits, name the \
-                     tracks from a tracklist, leave out the talk between songs, export, or download a \
-                     recording from a link. It edits the same cutlists as this window, and what it changes \
-                     shows up here within a second."
+                div { class: "modal-head",
+                    h2 { "Use TrackCut from Claude" }
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
                 }
-
-                div { class: "mcp-step",
-                    div { class: "mcp-step-title", span { class: "mcp-num", "1" } "Claude Desktop" }
+                div { class: "modal-body",
                     p { class: "dim",
-                        "Settings \u{2192} Developer \u{2192} Edit Config, paste this in and save, then quit \
-                         Claude and open it again. If the file already has an "
-                        code { "mcpServers" }
-                        " section, add just the "
-                        code { "trackcut" }
-                        " entry to it."
+                        "Ask Claude to split your recordings: find the tracks, confirm or move splits, name the \
+                         tracks from a tracklist, leave out the talk between songs, export, or download a \
+                         recording from a link. It edits the same cutlists as this window, and what it changes \
+                         shows up here within a second."
                     }
-                    Snippet { text: desktop.clone() }
-                    p { class: "dim mcp-path", "The file: {desktop_config_path()}" }
-                }
 
-                div { class: "mcp-step",
-                    div { class: "mcp-step-title", span { class: "mcp-num", "2" } "Claude Code" }
-                    p { class: "dim", "Run this once in a terminal:" }
-                    Snippet { text: code.clone() }
-                }
-
-                div { class: "mcp-step",
-                    div { class: "mcp-step-title", span { class: "mcp-num", "3" } "Try it" }
-                    p { class: "dim",
-                        "Ask: \u{201c}What\u{2019}s in my recordings folder?\u{201d}, or \u{201c}Split live.mp3, name \
-                         the tracks from this setlist and export them as MP3.\u{201d}"
+                    div { class: "mcp-step",
+                        div { class: "mcp-step-title", span { class: "mcp-num", "1" } "Claude Desktop" }
+                        p { class: "dim",
+                            "Settings \u{2192} Developer \u{2192} Edit Config, paste this in and save, then quit \
+                             Claude and open it again. If the file already has an "
+                            code { "mcpServers" }
+                            " section, add just the "
+                            code { "trackcut" }
+                            " entry to it."
+                        }
+                        Snippet { text: desktop.clone() }
+                        p { class: "dim mcp-path", "The file: {desktop_config_path()}" }
                     }
-                }
 
-                p { class: "mcp-note",
-                    "Claude in the browser (claude.ai) can\u{2019}t use this: it only connects to servers on the \
-                     internet, and TrackCut runs on your computer. Any other app that speaks MCP can, with the \
-                     same command: "
-                    code { "{command} mcp" }
-                }
+                    div { class: "mcp-step",
+                        div { class: "mcp-step-title", span { class: "mcp-num", "2" } "Claude Code" }
+                        p { class: "dim", "Run this once in a terminal:" }
+                        Snippet { text: code.clone() }
+                    }
 
-                div { class: "modal-actions",
-                    button { class: "primary", onclick: move |_| close(), "Done" }
+                    div { class: "mcp-step",
+                        div { class: "mcp-step-title", span { class: "mcp-num", "3" } "Try it" }
+                        p { class: "dim",
+                            "Ask: \u{201c}What\u{2019}s in my recordings folder?\u{201d}, or \u{201c}Split live.mp3, name \
+                             the tracks from this setlist and export them as MP3.\u{201d}"
+                        }
+                    }
+
+                    p { class: "mcp-note",
+                        "Claude in the browser (claude.ai) can\u{2019}t use this: it only connects to servers on the \
+                         internet, and TrackCut runs on your computer. Any other app that speaks MCP can, with the \
+                         same command: "
+                        code { "{command} mcp" }
+                    }
+
+                    div { class: "modal-actions",
+                        button { class: "primary", onclick: move |_| close(), "Done" }
+                    }
                 }
             }
         }
