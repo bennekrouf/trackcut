@@ -716,6 +716,25 @@ fn LicenceDialog() -> Element {
     let free_email = use_signal(String::new);
     let free_note = use_signal(|| Option::<String>::None);
     let free_hidden = use_signal(|| false);
+    // Set by an Activate that made TrackCut Pro, so the window congratulates rather than
+    // just reporting it.
+    let activated = use_signal(|| false);
+    // Escape closes the window wherever the focus is: the Pro view has no field to listen on.
+    use_future(move || async move {
+        let (mut dialog, mut activated) = (app.licence_dialog, activated);
+        let mut keys = document::eval(
+            "if (window._proEscape) window.removeEventListener('keydown', window._proEscape);\
+             window._proEscape = (e) => { if (e.key === 'Escape') dioxus.send(true); };\
+             window.addEventListener('keydown', window._proEscape);",
+        );
+        while keys.recv::<bool>().await.is_ok() {
+            if dialog.peek().is_some() {
+                dialog.set(None);
+                activated.set(false);
+                app.focus_root();
+            }
+        }
+    });
     let Some(text) = (app.licence_dialog)() else { return rsx! {} };
     let status = app.licence.read().clone();
     let asks_number = matches!(status, Status::Free | Status::Unknown(_)) || status.free_credits().is_some();
@@ -724,8 +743,9 @@ fn LicenceDialog() -> Element {
     let close = move || {
         let mut dialog = app.licence_dialog;
         dialog.set(None);
-        let mut problem = problem;
+        let (mut problem, mut activated) = (problem, activated);
         problem.set(None);
+        activated.set(false);
         app.focus_root();
     };
     let activate = move || {
@@ -739,6 +759,8 @@ fn LicenceDialog() -> Element {
             let mut problem = problem;
             match licence::activate_async(typed).await {
                 Ok(s) => {
+                    let mut activated = activated;
+                    activated.set(matches!(s, Status::Pro(_)));
                     let mut licence = app.licence;
                     licence.set(s);
                     let mut dialog = app.licence_dialog;
@@ -795,6 +817,37 @@ fn LicenceDialog() -> Element {
         let mut licence = app.licence;
         licence.set(Status::Free);
     };
+
+    if let Status::Pro(a) = &status {
+        let number = a.licence.clone();
+        return rsx! {
+            div { class: "modal-backdrop", onclick: move |_| close(),
+                div { class: "modal pro-done", onclick: move |e| e.stop_propagation(),
+                    button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
+                    div { class: "pro-done-mark", "✓" }
+                    h2 { class: "pro-done-title",
+                        if activated() { "Congratulations, you're Pro!" } else { "You're Pro" }
+                    }
+                    p { class: "pro-done-sub", "Licence validated." }
+                    p { class: "pro-done-meta",
+                        "{a.credits.left} AI credits left this month"
+                        br {}
+                        "{a.renewal()}"
+                    }
+                    button {
+                        class: "pro-done-manage",
+                        disabled: busy(),
+                        title: "Change or cancel the plan on mayorana.ch",
+                        onclick: move |_| manage(number.clone()),
+                        "Manage subscription"
+                    }
+                    if let Some(p) = problem() {
+                        p { class: "pro-done-error", "{p}" }
+                    }
+                }
+            }
+        };
+    }
 
     rsx! {
         div { class: "modal-backdrop", onclick: move |_| close(),
@@ -925,8 +978,12 @@ fn LicenceDialog() -> Element {
                         button { onclick: move |_| close(), if asks_number { "Cancel" } else { "Close" } }
                         if asks_number {
                             button { class: "primary", disabled: text.trim().is_empty() || busy(), onclick: move |_| activate(),
-                                "Activate"
-                                kbd { "Enter" }
+                                if busy() {
+                                    span { class: "pro-spinner", title: "Checking the licence" }
+                                } else {
+                                    "Activate"
+                                    kbd { "Enter" }
+                                }
                             }
                         }
                     }
