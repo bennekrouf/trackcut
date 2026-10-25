@@ -150,6 +150,10 @@ fn run(
 
     let mut cmd = tools::yt_dlp_command(&tools.yt_dlp);
     cmd.args(["--no-playlist", "--newline", "--progress", "--no-colors"])
+        // UTF-8 output everywhere: on Windows yt-dlp otherwise writes to a pipe in the ANSI
+        // code page, dropping or mangling the title's accents and emoji in the path it prints,
+        // so the file it saved couldn't be found.
+        .args(["--encoding", "utf-8"])
         .arg("--js-runtimes")
         .arg(format!("deno:{}", tools.deno.display()))
         // Formats symphonia decodes (and, for a video, the web view plays).
@@ -232,7 +236,7 @@ fn read_output(
     let etx = tx.clone();
     let errors = std::thread::spawn(move || {
         let mut errors = Vec::new();
-        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+        for line in lossy_lines(stderr) {
             if let Some(p) = parse_progress(&line) {
                 let _ = etx.send(Event::Phase(p));
                 continue;
@@ -245,7 +249,7 @@ fn read_output(
         errors
     });
     let mut files = Vec::new();
-    for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+    for line in lossy_lines(stdout) {
         if let Some(path) = line.strip_prefix(FILE).map(str::trim) {
             let _ = tx.send(Event::Log(format!("Saved {path}")));
             files.push(PathBuf::from(path));
@@ -256,6 +260,17 @@ fn read_output(
         }
     }
     (files, errors.join().unwrap_or_default())
+}
+
+/// A stream's lines, without their line ending. A line that isn't UTF-8 is kept, lossily,
+/// rather than ending the read there (which also left yt-dlp blocked on a full pipe).
+fn lossy_lines(stream: impl Read) -> impl Iterator<Item = String> {
+    BufReader::new(stream).split(b'\n').map_while(Result::ok).map(|mut line| {
+        if line.last() == Some(&b'\r') {
+            line.pop();
+        }
+        String::from_utf8_lossy(&line).into_owned()
+    })
 }
 
 /// One of our progress lines, as a phase.
