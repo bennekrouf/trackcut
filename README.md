@@ -1,5 +1,7 @@
 # TrackCut
 
+![TrackCut splitting a long recording: the waveform with split markers, the track list and the keyboard shortcuts](docs/screenshot.png)
+
 Keyboard-driven tool for splitting long MP3/WAV recordings into tracks. Rust + Dioxus desktop.
 Videos (MP4, M4V, MOV with AAC audio) open too: they're split on their sound and exported as
 video clips.
