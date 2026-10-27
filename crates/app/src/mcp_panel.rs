@@ -26,6 +26,12 @@ pub fn code_command(command: &str) -> String {
     format!("claude mcp add trackcut --scope user -- \"{command}\" mcp")
 }
 
+/// The one line that adds it to Codex. Its CLI, IDE extension and app share
+/// one list of servers, each one there for every project.
+pub fn codex_command(command: &str) -> String {
+    format!("codex mcp add trackcut -- \"{command}\" mcp")
+}
+
 /// Where Claude Desktop keeps its config, for the person who would rather open it themselves
 /// than go through the app's menu.
 fn desktop_config_path() -> &'static str {
@@ -47,6 +53,7 @@ pub fn McpDialog() -> Element {
     let command = command();
     let desktop = desktop_config(&command);
     let code = code_command(&command);
+    let codex = codex_command(&command);
     let close = move || {
         let mut dialog = app.mcp_dialog;
         dialog.set(false);
@@ -68,7 +75,7 @@ pub fn McpDialog() -> Element {
                     }
                 },
                 div { class: "modal-head",
-                    h2 { "Use TrackCut from Claude" }
+                    h2 { "Use TrackCut from Claude or Codex" }
                     button { class: "modal-close", title: "Close", onclick: move |_| close(), "×" }
                 }
                 div { class: "modal-body",
@@ -100,7 +107,13 @@ pub fn McpDialog() -> Element {
                     }
 
                     div { class: "mcp-step",
-                        div { class: "mcp-step-title", span { class: "mcp-num", "3" } "Try it" }
+                        div { class: "mcp-step-title", span { class: "mcp-num", "3" } "Codex" }
+                        p { class: "dim", "Run this once in a terminal:" }
+                        Snippet { text: codex.clone() }
+                    }
+
+                    div { class: "mcp-step",
+                        div { class: "mcp-step-title", span { class: "mcp-num", "4" } "Try it" }
                         p { class: "dim",
                             "Ask: \u{201c}What\u{2019}s in my recordings folder?\u{201d}, or \u{201c}Split live.mp3, name \
                              the tracks from this setlist and export them as MP3.\u{201d}"
@@ -170,6 +183,14 @@ mod tests {
         assert_eq!(
             code_command("/Apps/Track Cut/trackcut"),
             "claude mcp add trackcut --scope user -- \"/Apps/Track Cut/trackcut\" mcp"
+        );
+    }
+
+    #[test]
+    fn the_codex_command_quotes_a_path_with_spaces() {
+        assert_eq!(
+            codex_command("/A B/trackcut"),
+            "codex mcp add trackcut -- \"/A B/trackcut\" mcp"
         );
     }
 }
