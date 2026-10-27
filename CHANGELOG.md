@@ -15,6 +15,13 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- Added support for Codex MCP: a new step in the setup dialog shows the command
+  to register TrackCut as a Codex server.
+
 ## [0.1.36] - 2026-10-27
 
 ### Changed
