@@ -7,7 +7,7 @@ license-file.workspace = true
 
 [dependencies]
 trackcut-core.workspace = true
-desktop-kit.workspace = true
+desktop-kit = { workspace = true, features = ["ui"] }
 trackcut-audio.workspace = true
 dioxus.workspace = true
 # rt and sync are used by the usage statistics (spawn_blocking, an async mutex).

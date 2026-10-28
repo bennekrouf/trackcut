@@ -39,68 +39,6 @@ pub(super) fn Sidebar() -> Element {
                 },
                 ondoubleclick: move |_| app.fit_sidebar(),
             }
-            div { class: "sidebar-head",
-                div { class: "brand-wrap",
-                    button {
-                        class: "brand",
-                        title: "TrackCut Pro licence",
-                        onclick: move |_| {
-                            let mut dialog = app.licence_dialog;
-                            dialog.set(Some(String::new()));
-                        },
-                        "TrackCut"
-                        if matches!(*app.licence.read(), crate::licence::Status::Pro(_)) {
-                            span { class: "pro-badge", "Pro" }
-                        }
-                    }
-                    // Which build is running, for bug reports and support.
-                    span { class: "app-version", { concat!("v", env!("CARGO_PKG_VERSION")) } }
-                    // A link, not a button: the webview hands it to the browser.
-                    a {
-                        class: "feedback-link",
-                        href: "{crate::feedback::contact_url()}",
-                        target: "_blank",
-                        title: "Ideas, bugs, questions: send them to the person who makes TrackCut",
-                        "Feedback"
-                    }
-                }
-                div { class: "head-actions",
-                    button { title: "Open a folder of recordings (⌘O)", onclick: move |_| open_folder(app), "Open folder…" }
-                    button {
-                        title: "Download a YouTube video's audio and open it (⌘U)",
-                        disabled: app.download.read().is_some(),
-                        onclick: move |_| app.ask_url(),
-                        "URL…"
-                    }
-                    button {
-                        title: "Use TrackCut from Claude Desktop or Claude Code",
-                        onclick: move |_| {
-                            let mut dialog = app.mcp_dialog;
-                            dialog.set(true);
-                        },
-                        "MCP"
-                    }
-                    {
-                        let (label, title) = match *app.licence.read() {
-                            crate::licence::Status::Pro(_) => ("Pro ✓", "TrackCut Pro is active on this computer"),
-                            crate::licence::Status::Free => ("Get Pro…", "Subscribe to TrackCut Pro, or paste your licence number"),
-                            crate::licence::Status::NotPro(ref a) if a.is_free() => ("Get Pro…", "Free AI credits, no Pro: subscribe to TrackCut Pro to export every track"),
-                            _ => ("Renew Pro…", "Your licence doesn't make this TrackCut Pro right now"),
-                        };
-                        rsx! {
-                            button {
-                                class: "pro-button",
-                                title: "{title}",
-                                onclick: move |_| {
-                                    let mut dialog = app.licence_dialog;
-                                    dialog.set(Some(String::new()));
-                                },
-                                "{label}"
-                            }
-                        }
-                    }
-                }
-            }
             DownloadStatus {}
             DownloadLogPanel {}
             if let Some(name) = folder {

@@ -4,6 +4,7 @@ use crate::exporting::source_facts;
 use crate::exporting::ExportStatus;
 use crate::review;
 use crate::state::{self, key_of, ScanState};
+use desktop_kit::ui::{use_theme, Header, ProBadge, ProLook};
 use dioxus::html::input_data::MouseButton;
 use dioxus::prelude::*;
 use std::fmt::Write;
@@ -46,6 +47,7 @@ const GRAB_PX: f64 = 6.0;
 #[component]
 pub fn App() -> Element {
     let app = use_context_provider(state::App::new);
+    let theme = use_theme();
 
     use_hook(move || match std::env::args().nth(1) {
         Some(arg) => app.open(std::path::Path::new(&arg)),
@@ -277,9 +279,45 @@ pub fn App() -> Element {
         }
     };
 
+    let licence = app.licence.read().clone();
+    let pro_title = match licence {
+        crate::licence::Status::Pro(_) => "TrackCut Pro is active on this computer",
+        crate::licence::Status::Free => "Subscribe to TrackCut Pro, or paste your licence number",
+        crate::licence::Status::NotPro(ref a) if a.is_free() => {
+            "Free AI credits, no Pro: subscribe to TrackCut Pro to export every track"
+        }
+        _ => "Your licence doesn't make this TrackCut Pro right now",
+    };
+
     rsx! {
         style { {CSS} }
-        crate::theme::ThemeToggle {}
+        Header {
+            theme,
+            on_mcp: move |_| {
+                let mut dialog = app.mcp_dialog;
+                dialog.set(true);
+            },
+            actions: rsx! {
+                button { class: "kit-btn", title: "Open a folder of recordings (⌘O)", onclick: move |_| open_folder(app), "Open folder…" }
+                button {
+                    class: "kit-btn",
+                    title: "Download a YouTube video's audio and open it (⌘U)",
+                    disabled: app.download.read().is_some(),
+                    onclick: move |_| app.ask_url(),
+                    "URL…"
+                }
+            },
+            pro: rsx! {
+                ProBadge {
+                    look: ProLook::of(&licence),
+                    title: pro_title,
+                    onclick: move |_| {
+                        let mut dialog = app.licence_dialog;
+                        dialog.set(Some(String::new()));
+                    },
+                }
+            },
+        }
         div {
             class: if sidebar_drag() { "app resizing" } else { "app" },
             style: "grid-template-columns: {sidebar_width}px 1fr",
