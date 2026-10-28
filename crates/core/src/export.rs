@@ -243,8 +243,8 @@ impl Profile {
             }
             _ => {}
         }
-        if *self == Profile::Wav16 && src.bits.is_some_and(|b| b > 16) {
-            w.push(format!("Reduces the {}-bit source to 16-bit.", src.bits.unwrap()));
+        if let Some(bits) = src.bits.filter(|&b| b > 16 && *self == Profile::Wav16) {
+            w.push(format!("Reduces the {bits}-bit source to 16-bit."));
         }
         if self.is_lossy() && src.sample_rate > 48_000 {
             w.push(format!("MP3 tops out at 48 kHz; the {} Hz source will be resampled.", src.sample_rate));

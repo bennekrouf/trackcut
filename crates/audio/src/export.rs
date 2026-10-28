@@ -360,7 +360,7 @@ impl WavLayout {
             let mut ch = [0u8; 8];
             f.seek(SeekFrom::Start(pos))?;
             f.read_exact(&mut ch)?;
-            let size = u32::from_le_bytes(ch[4..8].try_into().unwrap()) as u64;
+            let size = u32::from_le_bytes([ch[4], ch[5], ch[6], ch[7]]) as u64;
             let body = pos + 8;
             match &ch[0..4] {
                 b"fmt " => {

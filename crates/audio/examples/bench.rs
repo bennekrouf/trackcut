@@ -1,7 +1,8 @@
 //! Time the scan and random seeks on a real file.
 //!
 //!     cargo run -p trackcut-audio --release --example bench -- path/to/recording.mp3
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use std::sync::Arc;
 use std::time::Instant;
 use trackcut_audio::scan::scan;

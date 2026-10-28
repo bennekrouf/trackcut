@@ -7,7 +7,7 @@ use crate::scan::{load_or_scan, Scan};
 use crossbeam_channel::{Receiver, Sender};
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 pub enum ScanEvent {
     Started(PathBuf),
@@ -34,6 +34,8 @@ impl Scanner {
         let queue = Arc::new((Mutex::new(Queues::default()), Condvar::new()));
         let (tx, events) = crossbeam_channel::unbounded();
         let q = queue.clone();
+        // The operating system refusing a thread leaves nothing to fall back to.
+        #[allow(clippy::expect_used)]
         std::thread::Builder::new()
             .name("trackcut-scan".into())
             .spawn(move || worker(q, tx))
@@ -44,7 +46,7 @@ impl Scanner {
     /// Replace the pending work (e.g. a new folder was opened).
     pub fn set_queue(&self, paths: impl IntoIterator<Item = PathBuf>) {
         let (lock, cv) = &*self.queue;
-        let mut q = lock.lock().unwrap();
+        let mut q = lock.lock().unwrap_or_else(PoisonError::into_inner);
         q.scans.clear();
         q.scans.extend(paths);
         q.loudness.clear();
@@ -54,7 +56,7 @@ impl Scanner {
     /// Move `path` to the front of the scan queue (adding it if missing).
     pub fn prioritize(&self, path: PathBuf) {
         let (lock, cv) = &*self.queue;
-        let mut q = lock.lock().unwrap();
+        let mut q = lock.lock().unwrap_or_else(PoisonError::into_inner);
         q.scans.retain(|p| p != &path);
         q.scans.push_front(path);
         cv.notify_one();
@@ -63,7 +65,7 @@ impl Scanner {
     /// Measure loudness for an already-scanned file, ahead of the others.
     pub fn prioritize_loudness(&self, path: PathBuf, scan: Arc<Scan>) {
         let (lock, cv) = &*self.queue;
-        let mut q = lock.lock().unwrap();
+        let mut q = lock.lock().unwrap_or_else(PoisonError::into_inner);
         q.loudness.retain(|(p, _)| p != &path);
         q.loudness.push_front((path, scan));
         cv.notify_one();
@@ -83,7 +85,7 @@ fn worker(queue: Arc<(Mutex<Queues>, Condvar)>, tx: Sender<ScanEvent>) {
     let (lock, cv) = &*queue;
     loop {
         let work = {
-            let mut q = lock.lock().unwrap();
+            let mut q = lock.lock().unwrap_or_else(PoisonError::into_inner);
             loop {
                 if let Some(p) = q.scans.pop_front() {
                     break Work::Scan(p);
@@ -91,7 +93,7 @@ fn worker(queue: Arc<(Mutex<Queues>, Condvar)>, tx: Sender<ScanEvent>) {
                 if let Some((p, s)) = q.loudness.pop_front() {
                     break Work::Loudness(p, s);
                 }
-                q = cv.wait(q).unwrap();
+                q = cv.wait(q).unwrap_or_else(PoisonError::into_inner);
             }
         };
         let event = match work {
@@ -103,7 +105,10 @@ fn worker(queue: Arc<(Mutex<Queues>, Condvar)>, tx: Sender<ScanEvent>) {
                 match load_or_scan(&path, &mut progress) {
                     Ok(scan) => {
                         let scan = Arc::new(scan);
-                        lock.lock().unwrap().loudness.push_back((path.clone(), scan.clone()));
+                        lock.lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .loudness
+                            .push_back((path.clone(), scan.clone()));
                         ScanEvent::Done(path, scan)
                     }
                     Err(e) => ScanEvent::Failed(path, format!("{e:#}")),

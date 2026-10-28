@@ -51,14 +51,16 @@ fn save_shared(text: &str) {
     let Some(f) = shared_file() else { return };
     // Named after this app, so two apps writing at once don't share it.
     let tmp = f.with_extension(format!("{PRODUCT}.tmp"));
-    let _ = std::fs::create_dir_all(f.parent().unwrap()).and_then(|_| std::fs::write(&tmp, text)).and_then(|_| {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
-        }
-        std::fs::rename(&tmp, &f)
-    });
+    let _ = std::fs::create_dir_all(f.parent().unwrap_or(std::path::Path::new(".")))
+        .and_then(|_| std::fs::write(&tmp, text))
+        .and_then(|_| {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+            }
+            std::fs::rename(&tmp, &f)
+        });
 }
 
 /// This app's licence, or the one typed in another Mayorana app.
@@ -81,7 +83,7 @@ fn save(saved: &Saved) -> Result<(), String> {
     let json = serde_json::to_vec_pretty(saved).map_err(|e| e.to_string())?;
     // Written beside the target and renamed over it, so a crash can't leave half a file.
     let tmp = f.with_extension("tmp");
-    std::fs::create_dir_all(f.parent().unwrap())
+    std::fs::create_dir_all(f.parent().unwrap_or(std::path::Path::new(".")))
         .and_then(|_| std::fs::write(&tmp, json))
         .and_then(|_| std::fs::rename(&tmp, &f))
         .map_err(|e| format!("The licence couldn't be saved: {e}"))

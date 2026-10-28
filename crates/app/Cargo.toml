@@ -7,6 +7,7 @@ license-file.workspace = true
 
 [dependencies]
 trackcut-core.workspace = true
+desktop-kit.workspace = true
 trackcut-audio.workspace = true
 dioxus.workspace = true
 # rt and sync are used by the usage statistics (spawn_blocking, an async mutex).
@@ -44,3 +45,6 @@ tokio = { workspace = true, features = ["net", "io-util", "macros", "rt-multi-th
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
+
+[lints]
+workspace = true

@@ -169,14 +169,15 @@ fn run(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child: Child = cmd.spawn().map_err(|e| format!("Could not start ffmpeg: {e}"))?;
-    let mut stderr = child.stderr.take().unwrap();
+    let mut stderr = child.stderr.take().ok_or("ffmpeg's errors could not be read")?;
+    let stdout = child.stdout.take().ok_or("ffmpeg's output could not be read")?;
     let errors = std::thread::spawn(move || {
         let mut s = String::new();
         let _ = stderr.read_to_string(&mut s);
         s
     });
     let mut stopped = false;
-    for line in BufReader::new(child.stdout.take().unwrap()).lines().map_while(Result::ok) {
+    for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         if cancelled() {
             let _ = child.kill();
             stopped = true;

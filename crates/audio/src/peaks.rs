@@ -128,9 +128,8 @@ impl AnalysisBuilder {
         }
         let mut levels = vec![self.level0];
         for _ in 1..LEVELS {
-            let next: Vec<(i16, i16)> = levels
-                .last()
-                .unwrap()
+            let Some(last) = levels.last() else { break };
+            let next: Vec<(i16, i16)> = last
                 .chunks(FACTOR as usize)
                 .map(|c| {
                     let lo = c.iter().map(|p| p.0).min().unwrap_or(0);

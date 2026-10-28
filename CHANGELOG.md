@@ -15,6 +15,14 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Fixed
+
+- A few rare failures that used to close TrackCut now show as an error
+  instead: a recording that can't be sought in, a download whose output
+  can't be read, and the files it writes in a folder it can't create.
+
 ## [0.1.37] - 2026-10-27
 
 ### Added

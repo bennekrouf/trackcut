@@ -35,7 +35,8 @@ pub(crate) fn cleaned_path(path: &Path) -> PathBuf {
             n => path.with_file_name(format!("{stem} (cleaned {n}).{ext}")),
         })
         .find(|p| !p.exists())
-        .unwrap()
+        // Counting up never runs out, so this is never reached.
+        .unwrap_or_else(|| path.with_file_name(format!("{stem} (cleaned).{ext}")))
 }
 
 /// Writes `ranges` of `src` back to back to `dst`: a WAV, or for a video an MP4 in `video`'s

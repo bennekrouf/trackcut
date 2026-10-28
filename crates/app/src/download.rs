@@ -18,7 +18,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// Markers we ask yt-dlp to print, so its other output can't be mistaken for ours.
 const PROGRESS: &str = "TRACKCUT-PROGRESS";
@@ -117,7 +117,7 @@ impl Download {
 
     fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
-        if let Some(child) = self.child.lock().unwrap().as_mut() {
+        if let Some(child) = self.child.lock().unwrap_or_else(PoisonError::into_inner).as_mut() {
             let _ = child.kill();
         }
     }
@@ -182,18 +182,18 @@ fn run(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Could not start yt-dlp: {e}"))?;
-    let stdout = spawned.stdout.take().unwrap();
-    let stderr = spawned.stderr.take().unwrap();
-    *child.lock().unwrap() = Some(spawned);
+    let stdout = spawned.stdout.take().ok_or("yt-dlp's output could not be read")?;
+    let stderr = spawned.stderr.take().ok_or("yt-dlp's errors could not be read")?;
+    *child.lock().unwrap_or_else(PoisonError::into_inner) = Some(spawned);
     if is_cancelled() {
         // Cancelled while starting: `cancel` found no child to kill.
-        if let Some(c) = child.lock().unwrap().as_mut() {
+        if let Some(c) = child.lock().unwrap_or_else(PoisonError::into_inner).as_mut() {
             let _ = c.kill();
         }
     }
 
     let (files, errors) = read_output(stdout, stderr, tx);
-    let status = child.lock().unwrap().take().and_then(|mut c| c.wait().ok());
+    let status = child.lock().unwrap_or_else(PoisonError::into_inner).take().and_then(|mut c| c.wait().ok());
     if is_cancelled() {
         return Err("cancelled".into());
     }

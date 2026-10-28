@@ -13,7 +13,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::*};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 enum Cmd {
@@ -70,6 +70,8 @@ impl Player {
         let (tx, rx) = crossbeam_channel::unbounded();
         let shared = Arc::new(Shared { stop_at: AtomicU64::new(u64::MAX), ..Default::default() });
         let s = shared.clone();
+        // The operating system refusing a thread leaves nothing to fall back to.
+        #[allow(clippy::expect_used)]
         std::thread::Builder::new()
             .name("trackcut-audio".into())
             .spawn(move || Engine::new(s).run(rx))
@@ -138,7 +140,7 @@ impl Player {
     }
 
     pub fn take_error(&self) -> Option<String> {
-        self.shared.error.lock().unwrap().take()
+        self.shared.error.lock().unwrap_or_else(PoisonError::into_inner).take()
     }
 }
 
@@ -239,7 +241,9 @@ impl Engine {
                 cur.stashed = Some(std::mem::replace(&mut cur.source, Box::new(mem)));
             }
             (false, true) => {
-                cur.source = cur.stashed.take().unwrap();
+                if let Some(stashed) = cur.stashed.take() {
+                    cur.source = stashed;
+                }
             }
             _ => return,
         }
@@ -249,7 +253,7 @@ impl Engine {
 
     fn report(&self, e: anyhow::Error) {
         eprintln!("trackcut audio: {e:#}");
-        *self.shared.error.lock().unwrap() = Some(format!("{e:#}"));
+        *self.shared.error.lock().unwrap_or_else(PoisonError::into_inner) = Some(format!("{e:#}"));
     }
 
     fn handle(&mut self, cmd: Cmd) {

@@ -71,6 +71,8 @@ impl App {
             _ => None,
         };
         let (tx, rx) = crossbeam_channel::bounded::<AbResult>(1);
+        // The operating system refusing a thread leaves nothing to fall back to.
+        #[allow(clippy::expect_used)]
         std::thread::Builder::new()
             .name("trackcut-ab".into())
             .spawn(move || {
