@@ -4,7 +4,7 @@ use crate::exporting::source_facts;
 use crate::exporting::ExportStatus;
 use crate::review;
 use crate::state::{self, key_of, ScanState};
-use desktop_kit::ui::{use_theme, Header, ProBadge, ProLook};
+use desktop_kit::ui::{use_theme, Banners, Header, ProButton, ProWindow};
 use dioxus::html::input_data::MouseButton;
 use dioxus::prelude::*;
 use std::fmt::Write;
@@ -31,7 +31,7 @@ use sidebar::*;
 const CSS: &str = include_str!("../assets/style.css");
 /// The native title bar, as in every mayorana app: name, version and licence,
 /// then the selected recording after a dash.
-pub fn window_title(licence: &crate::licence::Status, recording: Option<&str>) -> String {
+pub fn window_title(licence: &desktop_kit::licence::Status, recording: Option<&str>) -> String {
     let mut title = format!("TrackCut {}{}", env!("CARGO_PKG_VERSION"), licence.title_badge());
     if let Some(name) = recording {
         title.push_str(" \u{2014} ");
@@ -73,39 +73,10 @@ pub fn App() -> Element {
     // The licence is checked with api0 at start, then once a day.
     use_future(move || async move {
         let mut licence = app.licence;
-        licence.set(crate::licence::refresh_async(true).await);
+        licence.set(desktop_kit::licence::refresh(true).await);
         loop {
             tokio::time::sleep(Duration::from_secs(3600)).await;
-            licence.set(crate::licence::refresh_async(false).await);
-        }
-    });
-
-    // Delayed and best-effort: a release check is never worth slowing a cold start, and a
-    // failed one is not worth mentioning.
-    let mut update = use_signal(|| Option::<crate::update_check::UpdateInfo>::None);
-    use_future(move || async move {
-        tokio::time::sleep(Duration::from_secs(3)).await;
-        if let Some(info) = crate::update_check::check().await {
-            crate::telemetry::record(crate::telemetry::Event::UpdateOffered { to: info.latest_version.clone() });
-            update.set(Some(info));
-        }
-    });
-
-    // Anonymous usage statistics. On by default, but only once the person has
-    // been told: `start` reads the opt-outs (including a shell profile's),
-    // records the launch, and says whether the notice is still owed.
-    let mut ask_consent = use_signal(|| false);
-    use_future(move || async move {
-        if crate::telemetry::start().await {
-            ask_consent.set(true);
-        }
-        crate::telemetry::flush_forever().await;
-    });
-    // Recorded while the notice is on screen, so collection starts from the
-    // next event — never from one the person had no chance to read about.
-    use_effect(move || {
-        if ask_consent() {
-            crate::telemetry::mark_informed();
+            licence.set(desktop_kit::licence::refresh(false).await);
         }
     });
 
@@ -116,7 +87,7 @@ pub fn App() -> Element {
         if app.paste.peek().is_some()
             || app.editing_title.peek().is_some()
             || app.url_dialog.peek().is_some()
-            || app.licence_dialog.peek().is_some()
+            || *app.licence_dialog.peek()
             || *app.mcp_dialog.peek()
             || *app.renaming.peek()
             || app.confirm_delete.peek().is_some()
@@ -279,16 +250,6 @@ pub fn App() -> Element {
         }
     };
 
-    let licence = app.licence.read().clone();
-    let pro_title = match licence {
-        crate::licence::Status::Pro(_) => "TrackCut Pro is active on this computer",
-        crate::licence::Status::Free => "Subscribe to TrackCut Pro, or paste your licence number",
-        crate::licence::Status::NotPro(ref a) if a.is_free() => {
-            "Free AI credits, no Pro: subscribe to TrackCut Pro to export every track"
-        }
-        _ => "Your licence doesn't make this TrackCut Pro right now",
-    };
-
     rsx! {
         style { {CSS} }
         Header {
@@ -307,16 +268,7 @@ pub fn App() -> Element {
                     "URL…"
                 }
             },
-            pro: rsx! {
-                ProBadge {
-                    look: ProLook::of(&licence),
-                    title: pro_title,
-                    onclick: move |_| {
-                        let mut dialog = app.licence_dialog;
-                        dialog.set(Some(String::new()));
-                    },
-                }
-            },
+            pro: rsx! { ProButton { pro: app.pro(), hint: crate::pro::hint() } },
         }
         div {
             class: if sidebar_drag() { "app resizing" } else { "app" },
@@ -344,57 +296,14 @@ pub fn App() -> Element {
             main { class: "main", Editor {} }
             UrlDialog {}
             DeleteDialog {}
-            LicenceDialog {}
+            ProWindow {
+                pro: app.pro(),
+                pitch: crate::pro::pitch(),
+                on_close: move |_| app.focus_root(),
+            }
             crate::mcp_panel::McpDialog {}
         }
-        // Dismissed for this session only: the next launch asks again.
-        if let Some(info) = update() {
-            div { class: "update-banner",
-                span { class: "update-banner-text",
-                    "TrackCut "
-                    strong { "{info.latest_version}" }
-                    " is available (you have {env!(\"CARGO_PKG_VERSION\")})."
-                }
-                a {
-                    class: "update-banner-link",
-                    href: "{info.download_url}",
-                    target: "_blank",
-                    onclick: {
-                        let to = info.latest_version.clone();
-                        move |_| crate::telemetry::record(crate::telemetry::Event::UpdateClicked { to: to.clone() })
-                    },
-                    "Download"
-                }
-                button { class: "update-banner-dismiss", title: "Dismiss", onclick: move |_| update.set(None), "×" }
-            }
-        }
-        // Usage-statistics notice: once, at the bottom so it never sits under the
-        // update banner. Either button is remembered.
-        if ask_consent() {
-            div { class: "consent-banner",
-                span { class: "update-banner-text",
-                    strong { "TrackCut shares anonymous usage statistics. " }
-                    "Whether it is installed and opened, and its version and operating system \
-                     — never your recordings, files or anything you type."
-                }
-                button {
-                    class: "update-banner-link",
-                    onclick: move |_| {
-                        crate::telemetry::set_consent(true);
-                        ask_consent.set(false);
-                    },
-                    "OK"
-                }
-                button {
-                    class: "update-banner-link",
-                    onclick: move |_| {
-                        crate::telemetry::set_consent(false);
-                        ask_consent.set(false);
-                    },
-                    "Turn off"
-                }
-            }
-        }
+        Banners { statistics: true }
     }
 }
 
