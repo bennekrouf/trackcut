@@ -32,6 +32,11 @@ user sees in the update prompt should all be accounted for.
 - The Pro window looks and reads the same in every mayorana app. Once you're Pro
   it names your plan and email, and pressing Enter in the licence number field
   activates it.
+## [0.1.40] - 2026-10-28
+
+### Changed
+
+- Packaging only — no user-visible change.
 
 ## [0.1.39] - 2026-10-28
 
