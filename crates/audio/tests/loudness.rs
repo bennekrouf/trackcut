@@ -1,5 +1,6 @@
 //! Range loudness derived from the stored blocks must agree with measuring the range directly.
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 mod common;
 
 use common::*;

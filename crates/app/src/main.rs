@@ -7,6 +7,7 @@ mod download;
 mod exporting;
 mod feedback;
 mod http;
+mod kit;
 mod licence;
 mod mcp;
 mod mcp_panel;
@@ -30,6 +31,7 @@ fn webview_data_dir() -> std::path::PathBuf {
 }
 
 fn main() {
+    kit::init();
     // `trackcut mcp`: the recordings over stdio for an MCP client, and no window.
     if std::env::args().nth(1).as_deref() == Some("mcp") {
         return mcp::serve();

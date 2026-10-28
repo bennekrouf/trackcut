@@ -1,6 +1,7 @@
 //! End-to-end checks on real encoded files: the frame index agrees with symphonia's sample
 //! numbering, and seeking lands on exactly the samples a straight decode produces.
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 mod common;
 
 use common::*;

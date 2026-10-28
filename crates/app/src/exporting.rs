@@ -13,7 +13,7 @@ use trackcut_audio::export::{can_copy, export, ExportJob, Tags};
 use trackcut_audio::loudness::{apply_to_jobs, load_or_analyze, LoudnessMap};
 use trackcut_audio::{Bitrate, Scan};
 use trackcut_core::export::{plan, Normalize, Profile, SourceFacts, VideoProfile};
-use trackcut_core::license::exported_tracks;
+use trackcut_core::license::{exported_tracks, StatusExt};
 use trackcut_core::Status;
 
 /// Where one recording stands in the export queue.
@@ -90,6 +90,8 @@ impl Exporter {
         let (etx, events) = crossbeam_channel::unbounded();
         let generation = Arc::new(AtomicU64::new(0));
         let g = generation.clone();
+        // The operating system refusing a thread leaves nothing to fall back to.
+        #[allow(clippy::expect_used)]
         std::thread::Builder::new()
             .name("trackcut-export".into())
             .spawn(move || {

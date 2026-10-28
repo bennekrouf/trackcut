@@ -2,7 +2,8 @@
 //! silent gaps, encoded as VBR MP3 (plus a short WAV).
 //!
 //!     cargo run -p trackcut-audio --release --example make_test_recording -- testdata 60
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use mp3lame_encoder::{Builder, FlushNoGap, InterleavedPcm, Quality, VbrMode};
 use std::f32::consts::TAU;
 use std::path::PathBuf;

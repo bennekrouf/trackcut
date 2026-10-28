@@ -62,7 +62,9 @@ pub fn suggest(db: &[f32], window: u64, rate: u32, p: &DetectParams) -> Vec<Spli
         match out.last() {
             Some((prev, prev_len)) if at - prev.at < min_track => {
                 if len > *prev_len {
-                    *out.last_mut().unwrap() = (split, len);
+                    if let Some(last) = out.last_mut() {
+                        *last = (split, len);
+                    }
                 }
             }
             _ => out.push((split, len)),

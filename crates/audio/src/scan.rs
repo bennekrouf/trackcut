@@ -206,7 +206,7 @@ pub(crate) fn write_cached<T: Serialize>(
     value: &T,
 ) -> Result<()> {
     let file = cache_file(path, ext).ok_or_else(|| anyhow!("no cache dir"))?;
-    std::fs::create_dir_all(file.parent().unwrap())?;
+    std::fs::create_dir_all(file.parent().ok_or_else(|| anyhow!("no cache dir"))?)?;
     let tmp = file.with_extension(format!("{ext}.tmp"));
     let mut w = BufWriter::new(File::create(&tmp)?);
     w.write_all(magic)?;

@@ -1,6 +1,7 @@
 //! Re-encoded exports: lossless profiles decode back to the source exactly, MP3 comes back
 //! with the exact length and sample-aligned, and A/B previews line up with the source.
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 mod common;
 
 use common::*;

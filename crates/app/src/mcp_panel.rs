@@ -188,9 +188,6 @@ mod tests {
 
     #[test]
     fn the_codex_command_quotes_a_path_with_spaces() {
-        assert_eq!(
-            codex_command("/A B/trackcut"),
-            "codex mcp add trackcut -- \"/A B/trackcut\" mcp"
-        );
+        assert_eq!(codex_command("/A B/trackcut"), "codex mcp add trackcut -- \"/A B/trackcut\" mcp");
     }
 }

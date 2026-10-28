@@ -1,6 +1,7 @@
 //! Exported tracks must be exactly the source samples `[start, end)`: for MP3 when decoded
 //! gaplessly (as players that honour the LAME header do), for WAV byte for byte.
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 mod common;
 
 use common::*;

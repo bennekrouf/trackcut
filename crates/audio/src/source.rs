@@ -121,8 +121,10 @@ impl Decoding {
     }
 
     /// Codec parameters of the track being decoded.
+    // `track_id` was taken from this same list when the file was opened.
+    #[allow(clippy::expect_used)]
     pub(crate) fn params(&self) -> &CodecParameters {
-        &self.format.tracks().iter().find(|t| t.id == self.track_id).unwrap().codec_params
+        &self.format.tracks().iter().find(|t| t.id == self.track_id).expect("the track opened").codec_params
     }
 
     /// Channel count. MP4 leaves it to the AAC config, which only the decoder reads: its
@@ -157,9 +159,9 @@ impl Decoding {
             let channels = spec.channels.count();
             let needed = decoded.capacity() as u64;
             if self.buf.as_ref().is_none_or(|b| (b.capacity() as u64) < needed * channels as u64) {
-                self.buf = Some(SampleBuffer::new(needed, spec));
+                self.buf = None;
             }
-            let buf = self.buf.as_mut().unwrap();
+            let buf = self.buf.get_or_insert_with(|| SampleBuffer::new(needed, spec));
             buf.copy_interleaved_ref(decoded);
             let samples = buf.samples();
             let frames = (samples.len() / channels) as u64;
@@ -291,7 +293,7 @@ impl PcmSource for GenericSource {
                 break;
             }
         }
-        Err(err.unwrap().into())
+        Err(err.map_or_else(|| anyhow!("could not seek"), Into::into))
     }
 
     fn read(&mut self, out: &mut Vec<f32>) -> Result<bool> {

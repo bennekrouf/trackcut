@@ -696,7 +696,9 @@ pub mod prefs {
 
     pub fn remember_folder(dir: &Path) {
         if let Some(f) = file() {
-            let _ = std::fs::create_dir_all(f.parent().unwrap());
+            if let Some(dir) = f.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
             let _ = std::fs::write(f, dir.to_string_lossy().as_bytes());
         }
     }
@@ -707,7 +709,9 @@ pub mod prefs {
 
     pub fn remember_sidebar_width(px: f64) {
         if let Some(f) = width_file() {
-            let _ = std::fs::create_dir_all(f.parent().unwrap());
+            if let Some(dir) = f.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
             let _ = std::fs::write(f, format!("{px:.0}"));
         }
     }

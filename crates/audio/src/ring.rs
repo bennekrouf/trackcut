@@ -43,6 +43,8 @@ impl Ring {
         let free = self.cap() - w.wrapping_sub(r);
         let n = data.len().min(free) / align * align;
         for (i, &s) in data[..n].iter().enumerate() {
+            // SAFETY: the slot is in the free region, which only this producer writes; the
+            // consumer reads it only after the Release store of `write` below publishes it.
             unsafe { *self.buf[(w + i) % self.cap()].get() = s };
         }
         self.write.store(w.wrapping_add(n), Ordering::Release);
@@ -55,6 +57,8 @@ impl Ring {
         let w = self.write.load(Ordering::Acquire);
         let n = out.len().min(w.wrapping_sub(r));
         for (i, o) in out[..n].iter_mut().enumerate() {
+            // SAFETY: the slot is in the filled region, published by the producer's Release
+            // store of `write` (read with Acquire above), and only this consumer reads it.
             *o = unsafe { *self.buf[(r + i) % self.cap()].get() };
         }
         self.read.store(r.wrapping_add(n), Ordering::Release);

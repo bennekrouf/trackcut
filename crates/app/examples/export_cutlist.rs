@@ -7,7 +7,8 @@
 //!
 //! Loudness is always measured, so tracks get ReplayGain tags; with `--verify` each exported
 //! track is measured again and its loudness printed.
-
+// A test or an example may panic: that is a failed run, not a crash anyone sees.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use std::path::PathBuf;
 use std::time::Instant;
 use trackcut_audio::export::{can_copy, export, ExportJob, Tags};
