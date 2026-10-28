@@ -92,9 +92,9 @@ pub struct App {
     /// Text of the "Open URL" dialog while it's open.
     pub url_dialog: Signal<Option<String>>,
     /// The TrackCut Pro licence on this computer.
-    pub licence: Signal<crate::licence::Status>,
-    /// Key being typed in the licence dialog while it's open.
-    pub licence_dialog: Signal<Option<String>>,
+    pub licence: Signal<desktop_kit::licence::Status>,
+    /// The Pro window is open.
+    pub licence_dialog: Signal<bool>,
     /// The yt-dlp download in progress, if any.
     pub download: Signal<Option<crate::download::Download>>,
     /// The last download's output, kept after it ends until closed.
@@ -145,8 +145,8 @@ impl App {
             ab: Signal::new(Default::default()),
             ab_rx: Signal::new(None),
             url_dialog: Signal::new(None),
-            licence: Signal::new(crate::licence::current()),
-            licence_dialog: Signal::new(None),
+            licence: Signal::new(desktop_kit::licence::current()),
+            licence_dialog: Signal::new(false),
             download: Signal::new(None),
             download_log: Signal::new(None),
             mcp_dialog: Signal::new(false),
@@ -724,5 +724,12 @@ pub mod prefs {
     pub fn last_folder() -> Option<PathBuf> {
         let dir = PathBuf::from(std::fs::read_to_string(file()?).ok()?.trim());
         dir.is_dir().then_some(dir)
+    }
+}
+
+impl App {
+    /// The Pro window's state, for desktop-kit's window and badge.
+    pub fn pro(&self) -> desktop_kit::ui::Pro {
+        desktop_kit::ui::Pro { open: self.licence_dialog, status: self.licence }
     }
 }

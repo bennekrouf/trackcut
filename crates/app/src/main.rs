@@ -7,15 +7,13 @@ mod download;
 mod exporting;
 mod http;
 mod kit;
-mod licence;
 mod mcp;
 mod mcp_panel;
 mod media_server;
+mod pro;
 mod review;
 mod state;
-mod telemetry;
 mod tools;
-mod update_check;
 mod video;
 mod video_export;
 mod views;
@@ -38,7 +36,7 @@ fn main() {
         .with_data_directory(webview_data_dir())
         .with_window(
             WindowBuilder::new()
-                .with_title(views::window_title(&licence::current(), None))
+                .with_title(views::window_title(&desktop_kit::licence::current(), None))
                 .with_inner_size(LogicalSize::new(1280.0, 820.0))
                 .with_window_icon(window_icon()),
         )

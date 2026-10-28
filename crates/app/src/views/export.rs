@@ -192,7 +192,7 @@ pub(super) fn ExportBar(scan: ScanRef) -> Element {
                     title: "The free version exports the first {trackcut_core::license::FREE_TRACKS} tracks of a recording",
                     onclick: move |_| {
                         let mut dialog = app.licence_dialog;
-                        dialog.set(Some(String::new()));
+                        dialog.set(true);
                     },
                     "TrackCut Pro exports all {kept} →"
                 }

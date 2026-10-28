@@ -730,7 +730,7 @@ fn export(args: &Value) -> Result<Value, String> {
     if let Some(q) = args["video_quality"].as_str() {
         settings.video = video_quality(q)?;
     }
-    let pro = crate::licence::current().exports_all();
+    let pro = desktop_kit::licence::current().exports_all();
     let done = export_now(&rec.path, scan, cutlist.recordings.get(&rec.key), &settings, pro)?;
     // Marked exported, as the window marks it.
     rec.change(|edit, _| {
@@ -749,7 +749,7 @@ fn export(args: &Value) -> Result<Value, String> {
              written. TrackCut Pro exports them all: {}",
             done.files.len(),
             done.kept,
-            crate::licence::BUY_URL
+            desktop_kit::licence::buy_url()
         ));
     }
     Ok(v)

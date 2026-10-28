@@ -2,9 +2,10 @@
 //! statistics, the update check and the licence rule), and lends it TrackCut's HTTP client.
 
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 
-use desktop_kit::http::{Request, Response};
+use desktop_kit::http::{Method, Request, Response};
 
 /// First thing in `main`: until then, nothing in desktop-kit records or sends.
 pub fn init() {
@@ -15,18 +16,39 @@ pub fn init() {
         // Still the app's old name: the folder holds the install's identity and the
         // person's answer, and a new folder would forget a "turn it off".
         telemetry_folder: "splitter",
-        http_get,
+        product: trackcut_core::license::PRODUCT,
+        licence_file,
+        http,
     });
 }
 
 /// ureq blocks, so the request runs on a blocking thread. Certificates are checked by the
 /// operating system, as for every TrackCut request (see `http`).
-fn http_get(req: Request) -> Pin<Box<dyn Future<Output = Option<Response>> + Send>> {
+fn http(req: Request) -> Pin<Box<dyn Future<Output = Option<Response>> + Send>> {
     Box::pin(async move {
         tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent =
                 crate::http::config().timeout_global(Some(req.timeout)).http_status_as_error(false).build().into();
-            let mut response = agent.get(&req.url).header("User-Agent", &req.user_agent).call().ok()?;
+            let mut response = match req.method {
+                Method::Get => {
+                    let mut request = agent.get(&req.url).header("User-Agent", &req.user_agent);
+                    for (name, value) in &req.headers {
+                        request = request.header(*name, value);
+                    }
+                    request.call()
+                }
+                Method::Post => {
+                    let mut request = agent.post(&req.url).header("User-Agent", &req.user_agent);
+                    for (name, value) in &req.headers {
+                        request = request.header(*name, value);
+                    }
+                    match req.json {
+                        Some(json) => request.header("Content-Type", "application/json").send(json),
+                        None => request.send_empty(),
+                    }
+                }
+            }
+            .ok()?;
             let status = response.status().as_u16();
             let body = response.body_mut().read_to_string().ok()?;
             Some(Response { status, body })
@@ -34,4 +56,9 @@ fn http_get(req: Request) -> Pin<Box<dyn Future<Output = Option<Response>> + Sen
         .await
         .ok()?
     })
+}
+
+/// Where the app keeps api0's last answer about its licence.
+fn licence_file() -> Option<PathBuf> {
+    Some(dirs::config_dir()?.join("splitter").join("licence.json"))
 }
