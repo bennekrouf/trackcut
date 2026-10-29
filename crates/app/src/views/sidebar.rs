@@ -82,6 +82,7 @@ pub(super) fn Sidebar() -> Element {
                                 match (export, scans.get(&rec.path)) {
                                     (Some(ExportStatus::Queued), _) => rsx! { span { class: "item-meta busy", "queued" } },
                                     (Some(ExportStatus::Measuring), _) => rsx! { span { class: "item-meta busy", "measuring…" } },
+                                    (Some(ExportStatus::LearningNoise), _) => rsx! { span { class: "item-meta busy", "learning noise…" } },
                                     (Some(ExportStatus::Installing(_)), _) => rsx! { span { class: "item-meta busy", "installing ffmpeg…" } },
                                     (Some(ExportStatus::Running { done, total, .. }), _) => rsx! {
                                         span { class: "item-meta busy", "exporting {done}/{total}" }

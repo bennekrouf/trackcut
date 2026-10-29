@@ -268,6 +268,20 @@ columns follow every split change. Peaks above −1 dBTP are shown in red.
   The gain never pushes the true peak above −1 dBTP. Original (byte copy) can't change level,
   so it only gets the tags.
 
+### Background noise
+
+Re-encoded exports can **reduce noise** (light, medium or strong): steady hiss, hum or room
+tone is taken out of each track. The noise print is learned once per recording from its
+quietest 50 ms windows (the quietest 5%, at most 20 s, and only those within 6 dB of the
+quietest), then each track runs through a short-time Fourier transform (2048-sample
+square-root Hann frames, 75 % overlap) where every bin is turned down by how much of it the
+noise explains, never by more than 8, 14 or 20 dB. Gains are smoothed across neighbouring
+bins and released over about 50 ms, so the twittering of plain spectral subtraction stays
+down and attacks pass. A recording whose quietest moment is above −30 dBFS has no stretch of
+plain noise to learn from, and the choice is greyed out. A/B plays the result. A video's clips
+use ffmpeg's `afftdn`, which follows the noise as the clip plays. Original (byte copy) is
+never changed.
+
 ## Building and releasing
 
 Same setup as GitAgent and the ais-* apps.

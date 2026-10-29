@@ -1,13 +1,14 @@
 //! A/B listening: loop a short window and switch instantly between the original and how it
-//! sounds with the chosen export profile.
+//! sounds with the chosen export profile, and the noise reduction when one is set.
 
 use crate::state::App;
 use dioxus::prelude::*;
 use std::sync::Arc;
+use trackcut_audio::denoise::noise_print;
 use trackcut_audio::source::open_source;
 use trackcut_audio::transcode::preview;
 use trackcut_audio::{AltPcm, Bitrate};
-use trackcut_core::export::Profile;
+use trackcut_core::export::{Denoise, Profile};
 
 /// Length of the compared window.
 pub const AB_SECS: f64 = 12.0;
@@ -62,6 +63,7 @@ impl App {
     fn ab_start(mut self, profile: Profile, pos: u64) {
         let (Some(path), Some(scan)) = (self.selected_path(), self.current_scan()) else { return };
         self.ab_stop();
+        let denoise = self.cutlist.peek().export.denoise;
         let total = scan.info.total_samples;
         let len = (AB_SECS * scan.info.sample_rate as f64) as u64;
         let start = pos.min(total.saturating_sub(len));
@@ -77,7 +79,14 @@ impl App {
             .name("trackcut-ab".into())
             .spawn(move || {
                 let result = open_source(&path, scan.mp3.clone().map(Arc::new))
-                    .and_then(|mut src| preview(profile, src.as_mut(), start, end, bits))
+                    .and_then(|mut src| {
+                        // What the export would write: with the noise taken out when it is set.
+                        let print = match denoise {
+                            Denoise::Off => None,
+                            _ => noise_print(src.as_mut(), &scan.loudness)?,
+                        };
+                        preview(profile, src.as_mut(), start, end, bits, print.as_ref().map(|p| (p, denoise)))
+                    })
                     .map(|pcm| (profile, start, end, pcm))
                     .map_err(|e| format!("{e:#}"));
                 let _ = tx.send(result);

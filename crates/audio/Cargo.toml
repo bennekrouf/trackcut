@@ -14,6 +14,7 @@ symphonia.workspace = true
 cpal.workspace = true
 flacenc.workspace = true
 ebur128.workspace = true
+realfft.workspace = true
 trackcut-core.workspace = true
 mp3lame-encoder.workspace = true
 

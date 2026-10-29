@@ -5,6 +5,7 @@
 //! splits. MP3 output carries LAME's own gapless header, so players trim it back to exactly the
 //! track's samples.
 
+use crate::denoise::{Denoising, NoisePrint};
 use crate::export::{id3v2, Tags, WavLayout};
 use crate::scan::Scan;
 use crate::source::{open_source, GenericSource, PcmSource};
@@ -17,7 +18,7 @@ use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::Arc;
-use trackcut_core::export::Profile;
+use trackcut_core::export::{Denoise, Profile};
 
 /// Sample rates MP3 can carry; anything else is resampled by LAME.
 const MP3_RATES: [u32; 9] = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
@@ -67,8 +68,9 @@ impl PcmSource for Gain<'_> {
     }
 }
 
-/// Encode `[start, end)` of `src` with `profile` into `out`, `gain_db` louder. `bits` is the
-/// source's bit depth for PCM sources (used by FLAC), `None` for MP3 sources.
+/// Encode `[start, end)` of `src` with `profile` into `out`, with the noise in `denoise` taken
+/// out first, then `gain_db` louder. `bits` is the source's bit depth for PCM sources (used by
+/// FLAC), `None` for MP3 sources.
 #[allow(clippy::too_many_arguments)]
 pub fn encode_track(
     profile: Profile,
@@ -77,9 +79,18 @@ pub fn encode_track(
     end: u64,
     bits: Option<u32>,
     gain_db: f64,
+    denoise: Option<(&NoisePrint, Denoise)>,
     tags: &Tags,
     out: &mut dyn Write,
 ) -> Result<()> {
+    let mut cleaned;
+    let src: &mut dyn PcmSource = match denoise {
+        Some((print, setting)) if !setting.is_off() => {
+            cleaned = Denoising::new(src, print, setting);
+            &mut cleaned
+        }
+        _ => src,
+    };
     let mut gained;
     let src: &mut dyn PcmSource = if gain_db.abs() > 1e-6 {
         gained = Gain { inner: src, factor: 10f64.powf(gain_db / 20.0) as f32 };
@@ -488,9 +499,25 @@ pub fn write_ranges_to_wav(
 // ---------------------------------------------------------------------------------------------
 // Preview
 
-/// What `[start, end)` sounds like after encoding with `profile`, as interleaved samples at the
-/// source's rate and channel count, sample-aligned with the source.
-pub fn preview(profile: Profile, src: &mut dyn PcmSource, start: u64, end: u64, bits: Option<u32>) -> Result<Vec<f32>> {
+/// What `[start, end)` sounds like after encoding with `profile`, with the noise in `denoise`
+/// taken out first, as interleaved samples at the source's rate and channel count,
+/// sample-aligned with the source.
+pub fn preview(
+    profile: Profile,
+    src: &mut dyn PcmSource,
+    start: u64,
+    end: u64,
+    bits: Option<u32>,
+    denoise: Option<(&NoisePrint, Denoise)>,
+) -> Result<Vec<f32>> {
+    let mut cleaned;
+    let src: &mut dyn PcmSource = match denoise {
+        Some((print, setting)) if !setting.is_off() => {
+            cleaned = Denoising::new(src, print, setting);
+            &mut cleaned
+        }
+        _ => src,
+    };
     let ch = src.channels();
     let want = (end - start) as usize * ch;
     match profile {

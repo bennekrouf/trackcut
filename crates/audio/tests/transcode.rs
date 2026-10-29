@@ -120,7 +120,7 @@ fn previews_line_up_with_the_source() {
     let want = &pcm[A as usize * ch..B as usize * ch];
     for profile in [Profile::Mp3Vbr { quality: 4 }, Profile::Flac, Profile::Wav16] {
         let mut source = open_source(&src, s.mp3.clone().map(Arc::new)).unwrap();
-        let p = preview(profile, source.as_mut(), A, B, Some(16)).unwrap();
+        let p = preview(profile, source.as_mut(), A, B, Some(16), None).unwrap();
         assert_eq!(p.len(), want.len(), "{}", profile.short());
         let snr = snr_db(&p, want);
         let floor = if profile.is_lossy() { 12.0 } else { 80.0 };
@@ -174,4 +174,79 @@ fn video_audio_exports_by_reencoding() {
     let want = &pcm[A as usize * ch..B as usize * ch];
     assert_eq!(got.len(), want.len());
     assert!(max_diff(&got, want) < 1.0 / 32768.0 * 1.5, "FLAC of the decoded AAC must match it");
+}
+
+/// A stereo WAV of `secs` seconds: steady hiss throughout, and a loud tone over it from
+/// `tone_from` seconds on.
+fn write_hissy_wav(path: &Path, secs: usize, tone_from: f32) {
+    let n = RATE as usize * secs;
+    let mut seed: u32 = 99;
+    let mut data = Vec::with_capacity(n * 4);
+    for i in 0..n {
+        let t = i as f32 / RATE as f32;
+        let tone = if t >= tone_from { (2.0 * std::f32::consts::PI * 660.0 * t).sin() * 0.4 } else { 0.0 };
+        for _ in 0..2 {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            let hiss = ((seed >> 16) as f32 / 65535.0 - 0.5) * 0.02;
+            data.extend_from_slice(&(((tone + hiss) * 32767.0) as i16).to_le_bytes());
+        }
+    }
+    let mut f = Vec::new();
+    f.extend_from_slice(b"RIFF");
+    f.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+    f.extend_from_slice(b"WAVEfmt ");
+    f.extend_from_slice(&16u32.to_le_bytes());
+    f.extend_from_slice(&1u16.to_le_bytes());
+    f.extend_from_slice(&2u16.to_le_bytes());
+    f.extend_from_slice(&RATE.to_le_bytes());
+    f.extend_from_slice(&(RATE * 4).to_le_bytes());
+    f.extend_from_slice(&4u16.to_le_bytes());
+    f.extend_from_slice(&16u16.to_le_bytes());
+    f.extend_from_slice(b"data");
+    f.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    f.extend_from_slice(&data);
+    std::fs::write(path, f).unwrap();
+}
+
+fn rms(x: &[f32]) -> f64 {
+    (x.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / x.len().max(1) as f64).sqrt()
+}
+
+#[test]
+fn reducing_noise_turns_the_hiss_down_and_leaves_the_music_at_its_level() {
+    use trackcut_audio::denoise::learn;
+    use trackcut_audio::export::export_with;
+    use trackcut_core::export::Denoise;
+
+    let src = tmp("transcode-hissy.wav");
+    write_hissy_wav(&src, 6, 2.0);
+    let s = scan(&src, &mut |_| {}).unwrap();
+    let print = learn(&src, &s).unwrap().expect("the first two seconds are hiss alone");
+    let rate = RATE as u64;
+    let job = |name: &str, start: u64, end: u64| ExportJob {
+        start,
+        end,
+        path: tmp("denoise").join(format!("{name}.flac")),
+        gain_db: 0.0,
+        tags: Tags { replaygain: None, title: name.into(), album: "Live".into(), track: 1, total: 2 },
+    };
+    let jobs = [job("hiss", rate / 5, rate * 9 / 5), job("music", rate * 5 / 2, rate * 11 / 2)];
+    export_with(&src, &s, &jobs, Profile::Flac, Some((&print, Denoise::Medium)), &mut |_| {}).unwrap();
+
+    let (pcm, ch) = source_pcm(&src);
+    let original = |j: &ExportJob| &pcm[j.start as usize * ch..j.end as usize * ch];
+    let exported = |j: &ExportJob| {
+        let s = scan(&j.path, &mut |_| {}).unwrap();
+        let mut out = open_source(&j.path, s.mp3.map(Arc::new)).unwrap();
+        decode_all(out.as_mut())
+    };
+
+    let hiss = exported(&jobs[0]);
+    assert_eq!(hiss.len(), original(&jobs[0]).len(), "same length as the split");
+    let down = 20.0 * (rms(&hiss) / rms(original(&jobs[0]))).log10();
+    assert!(down < -8.0, "hiss only down {down:.1} dB");
+
+    let music = exported(&jobs[1]);
+    let kept = 20.0 * (rms(&music) / rms(original(&jobs[1]))).log10();
+    assert!(kept.abs() < 0.5, "music changed by {kept:.1} dB");
 }

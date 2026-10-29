@@ -9,7 +9,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use trackcut_audio::export::Tags;
-use trackcut_core::export::VideoProfile;
+use trackcut_core::export::{Denoise, VideoProfile};
 
 /// Converts our sample frames into seconds on a video's timeline.
 #[derive(Clone, Copy, Debug)]
@@ -42,6 +42,23 @@ pub struct Clip<'a> {
     pub tags: &'a Tags,
     /// Level change in dB (loudness normalization).
     pub gain_db: f64,
+    /// Background noise taken out of the sound.
+    pub denoise: Denoise,
+}
+
+/// The clip's sound filters for ffmpeg, `None` when the sound goes through unchanged. Noise
+/// first, so the level change applies to the cleaned sound. ffmpeg's `afftdn` follows the
+/// noise as the clip plays (`tn=1`) rather than learning it from the whole recording, which a
+/// clip cut out of the middle could not.
+fn audio_filter(gain_db: f64, denoise: Denoise) -> Option<String> {
+    let mut filters = vec![];
+    if let Some(db) = denoise.reduction_db() {
+        filters.push(format!("afftdn=nr={db:.0}:tn=1"));
+    }
+    if gain_db.abs() > 0.005 {
+        filters.push(format!("volume={gain_db:.2}dB"));
+    }
+    (!filters.is_empty()).then(|| filters.join(","))
 }
 
 /// Whether `source` has a sound track to carry over.
@@ -84,8 +101,8 @@ pub fn export_clip(
     }
     cmd.args(["-map_metadata", "-1", "-sn", "-dn"]);
     encode_args(&mut cmd, profile, sound);
-    if sound && clip.gain_db.abs() > 0.005 {
-        cmd.args(["-af", &format!("volume={:.2}dB", clip.gain_db)]);
+    if let Some(filter) = audio_filter(clip.gain_db, clip.denoise).filter(|_| sound) {
+        cmd.args(["-af", &filter]);
     }
     let tags = clip.tags;
     cmd.args(["-metadata", &format!("title={}", tags.title)])
@@ -210,6 +227,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_sound_filter_cleans_first_and_is_left_out_when_nothing_changes() {
+        assert_eq!(audio_filter(0.0, Denoise::Off), None);
+        assert_eq!(audio_filter(-2.5, Denoise::Off).as_deref(), Some("volume=-2.50dB"));
+        assert_eq!(audio_filter(3.0, Denoise::Medium).as_deref(), Some("afftdn=nr=14:tn=1,volume=3.00dB"));
+        assert_eq!(audio_filter(0.0, Denoise::Strong).as_deref(), Some("afftdn=nr=20:tn=1"));
+    }
+
+    #[test]
     fn timeline_skips_the_priming() {
         let t = Timeline { rate: 44100, delay: 1024.0 / 44100.0 };
         assert!((t.secs(44100 + 1024) - 1.0).abs() < 1e-9);
@@ -249,7 +274,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let tags = Tags { title: "Clip".into(), album: "X".into(), track: 1, total: 1, replaygain: None };
         let clip_path = dir.join("clip.mp4");
-        let clip = Clip { start: rate / 2, end: 2 * rate, path: &clip_path, tags: &tags, gain_db: 3.0 };
+        let clip =
+            Clip { start: rate / 2, end: 2 * rate, path: &clip_path, tags: &tags, gain_db: 3.0, denoise: Denoise::Off };
         export_clip(&ffmpeg, &source, timeline, &clip, VideoProfile::default(), &|| false, &mut |_| {}).unwrap();
         let copy = dir.join("copy.mp4");
         write_ranges(
@@ -288,7 +314,14 @@ mod tests {
         // The fixture's signal is loud except for a quiet gap at 5–6 s.
         for (name, start, end) in [("a.mp4", rate / 2, 4 * rate + 12_345), ("b.mp4", 7 * rate, 11 * rate)] {
             let path = dir.join(name);
-            let clip = Clip { start: start + 1024, end: end + 1024, path: &path, tags: &tags, gain_db: 0.0 };
+            let clip = Clip {
+                start: start + 1024,
+                end: end + 1024,
+                path: &path,
+                tags: &tags,
+                gain_db: 0.0,
+                denoise: Denoise::Off,
+            };
             export_clip(&ffmpeg, &source, timeline, &clip, VideoProfile::default(), &|| false, &mut |_| {}).unwrap();
             let got = decode_with(&ffmpeg, &path);
             let all = decode_with(&ffmpeg, &source);

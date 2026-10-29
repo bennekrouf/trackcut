@@ -9,10 +9,11 @@ use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use trackcut_audio::export::{can_copy, export, ExportJob, Tags};
+use trackcut_audio::denoise::{self, NoisePrint};
+use trackcut_audio::export::{can_copy, export_with, ExportJob, Tags};
 use trackcut_audio::loudness::{apply_to_jobs, load_or_analyze, LoudnessMap};
 use trackcut_audio::{Bitrate, Scan};
-use trackcut_core::export::{plan, Normalize, Profile, SourceFacts, VideoProfile};
+use trackcut_core::export::{plan, Denoise, Normalize, Profile, SourceFacts, VideoProfile};
 use trackcut_core::license::{exported_tracks, StatusExt};
 use trackcut_core::Status;
 
@@ -22,6 +23,8 @@ pub enum ExportStatus {
     Queued,
     /// Measuring loudness before a normalized export.
     Measuring,
+    /// Learning the recording's background noise before an export that reduces it.
+    LearningNoise,
     /// Fetching ffmpeg before the first video export.
     Installing(f32),
     Running {
@@ -42,7 +45,11 @@ impl ExportStatus {
     pub fn is_active(&self) -> bool {
         matches!(
             self,
-            ExportStatus::Queued | ExportStatus::Measuring | ExportStatus::Installing(_) | ExportStatus::Running { .. }
+            ExportStatus::Queued
+                | ExportStatus::Measuring
+                | ExportStatus::LearningNoise
+                | ExportStatus::Installing(_)
+                | ExportStatus::Running { .. }
         )
     }
 
@@ -64,6 +71,7 @@ struct Task {
     dir: PathBuf,
     profile: Profile,
     normalize: Normalize,
+    denoise: Denoise,
     loudness: Option<Arc<LoudnessMap>>,
     /// For a video: clips with ffmpeg in this format, instead of `profile`.
     video: Option<VideoProfile>,
@@ -130,6 +138,17 @@ fn run(mut task: Task, generation: &AtomicU64, events: &Sender<Event>) {
     if let Some(map) = &task.loudness {
         apply_to_jobs(&mut task.jobs, map, task.normalize, reencode);
     }
+    // Learned once for the whole recording, not per track. A video's clips go through
+    // ffmpeg, which finds the noise itself; a copy in the original format is never changed.
+    let print: Option<NoisePrint> = if task.video.is_none() && reencode && !task.denoise.is_off() {
+        status(ExportStatus::LearningNoise);
+        match denoise::learn(&task.source, &task.scan) {
+            Ok(print) => print,
+            Err(e) => return status(ExportStatus::Failed(format!("learning the background noise: {e:#}"))),
+        }
+    } else {
+        None
+    };
     let total = task.jobs.len();
     let video = match task.video {
         Some(profile) => {
@@ -149,8 +168,14 @@ fn run(mut task: Task, generation: &AtomicU64, events: &Sender<Event>) {
         status(ExportStatus::Running { done: i, total, part: 0.0 });
         let result = match &video {
             Some((ffmpeg, profile, timeline)) => {
-                let clip =
-                    Clip { start: job.start, end: job.end, path: &job.path, tags: &job.tags, gain_db: job.gain_db };
+                let clip = Clip {
+                    start: job.start,
+                    end: job.end,
+                    path: &job.path,
+                    tags: &job.tags,
+                    gain_db: job.gain_db,
+                    denoise: task.denoise,
+                };
                 let mut last = 0.0;
                 let r = export_clip(ffmpeg, &task.source, *timeline, &clip, *profile, &cancelled, &mut |p| {
                     if p - last >= 0.01 {
@@ -163,8 +188,15 @@ fn run(mut task: Task, generation: &AtomicU64, events: &Sender<Event>) {
                     r => r,
                 }
             }
-            None => export(&task.source, &task.scan, std::slice::from_ref(job), task.profile, &mut |_| {})
-                .map_err(|e| format!("{e:#}")),
+            None => export_with(
+                &task.source,
+                &task.scan,
+                std::slice::from_ref(job),
+                task.profile,
+                print.as_ref().map(|p| (p, task.denoise)),
+                &mut |_| {},
+            )
+            .map_err(|e| format!("{e:#}")),
         };
         if let Err(e) = result {
             return status(ExportStatus::Failed(e));
@@ -239,6 +271,7 @@ fn task_for(
         dir,
         profile,
         normalize: settings.normalize,
+        denoise: settings.denoise,
         video,
     };
     Ok((task, kept))
@@ -414,6 +447,17 @@ impl App {
             return;
         }
         self.cutlist.write().export.video = profile;
+        self.mark_dirty();
+        self.save_now();
+    }
+
+    pub fn set_denoise(mut self, denoise: Denoise) {
+        if self.cutlist.peek().export.denoise == denoise {
+            return;
+        }
+        // A/B plays what the export would write, noise reduction included.
+        self.ab_stop();
+        self.cutlist.write().export.denoise = denoise;
         self.mark_dirty();
         self.save_now();
     }

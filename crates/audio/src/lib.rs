@@ -1,3 +1,4 @@
+pub mod denoise;
 pub mod export;
 pub mod loudness;
 pub mod mp3index;
