@@ -108,6 +108,20 @@ pub(super) fn ExportBar(scan: ScanRef) -> Element {
     let selected_idx = Profile::CHOICES.iter().position(|p| *p == profile).unwrap_or(0);
     // Only a byte copy can't change level.
     let fixed_level = !video && effective == Profile::Original;
+    let denoise = cutlist.export.denoise;
+    let denoise_idx = Denoise::CHOICES.iter().position(|d| *d == denoise).unwrap_or(0);
+    // A video's clips follow the noise as they play; a recording's is learned from its quiet.
+    let nothing_to_learn = !video && trackcut_audio::denoise::quiet_windows(&scan.0.loudness).is_none();
+    let denoise_title = if fixed_level {
+        "A byte copy keeps the sound exactly as it is; pick another format to reduce noise"
+    } else if nothing_to_learn {
+        "This recording has no quiet moment to learn its background noise from, so the sound would not change"
+    } else if video {
+        "Steady background noise (hiss, hum) taken out of the clips' sound"
+    } else {
+        "Steady background noise (hiss, hum, room tone), learned from the recording's quietest moments, \
+         taken out of the tracks. A/B lets you hear it first"
+    };
 
     rsx! {
         div { class: "export-bar",
@@ -175,6 +189,21 @@ pub(super) fn ExportBar(scan: ScanRef) -> Element {
                     option { key: "{i}", value: "{i}", selected: i == norm_idx, "{n.label()}" }
                 }
             }
+            select {
+                class: "profile",
+                title: "{denoise_title}",
+                disabled: fixed_level || nothing_to_learn,
+                value: "{denoise_idx}",
+                onchange: move |e| {
+                    if let Some(d) = e.value().parse::<usize>().ok().and_then(|i| Denoise::CHOICES.get(i)) {
+                        app.set_denoise(*d);
+                    }
+                    app.focus_root();
+                },
+                for (i, d) in Denoise::CHOICES.iter().enumerate() {
+                    option { key: "{i}", value: "{i}", selected: i == denoise_idx, "{d.label()}" }
+                }
+            }
             span { class: "dim",
                 if beyond_free > 0 {
                     if video { "{count} of {kept} clips" } else { "{count} of {kept} tracks · ≈ {size}" }
@@ -212,6 +241,7 @@ pub(super) fn ExportBar(scan: ScanRef) -> Element {
             match status {
                 Some(ExportStatus::Queued) => rsx! { span { class: "dim", "Queued…" } },
                 Some(ExportStatus::Measuring) => rsx! { span { class: "dim", "Measuring loudness…" } },
+                Some(ExportStatus::LearningNoise) => rsx! { span { class: "dim", "Learning the background noise…" } },
                 Some(ExportStatus::Installing(p)) => rsx! {
                     span { class: "dim", "Installing ffmpeg for video export… {(p * 100.0) as u32}%" }
                 },

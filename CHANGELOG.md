@@ -15,6 +15,17 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- Reduce noise, in the export bar beside the loudness choice: light, medium or
+  strong. It takes steady background noise (hiss, hum, room tone) out of the
+  exported tracks. TrackCut learns the noise from the recording's quietest
+  moments, so the music or voice over it keeps its level. A/B lets you hear
+  the result before you export. A video's clips get it too. It needs a
+  re-encoding format: Original copies the sound exactly as it is.
+
 ## [0.1.41] - 2026-10-28
 
 ### Added

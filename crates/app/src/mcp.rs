@@ -23,7 +23,7 @@ use trackcut_audio::scan::load_or_scan;
 use trackcut_audio::Scan;
 use trackcut_core::cutlist::Cutlist;
 use trackcut_core::edit::{RecordingEdit, Split, SplitState};
-use trackcut_core::export::{ExportSettings, Normalize, Profile, VideoProfile};
+use trackcut_core::export::{Denoise, ExportSettings, Normalize, Profile, VideoProfile};
 use trackcut_core::license::{StatusExt, FREE_TRACKS};
 use trackcut_core::time::fmt_precise;
 use trackcut_core::{detect, is_recording, is_video, list_recordings, tracklist, Status};
@@ -256,6 +256,11 @@ fn tools() -> Value {
                         "type": "string",
                         "description": "off, album:-14 or album:-16 (one gain for the whole recording), track:-14 or track:-16 (each track to that LUFS). Needs a re-encoding profile.",
                     },
+                    "denoise": {
+                        "type": "string",
+                        "enum": ["off", "light", "medium", "strong"],
+                        "description": "Takes steady background noise (hiss, hum, room tone) out of the sound. For a recording it is learned from its quietest moments and needs a re-encoding profile; a video's clips follow the noise as they play. Stronger takes out more and colours the sound more. Defaults to the choice in the window's export bar.",
+                    },
                     "video_quality": { "type": "string", "enum": ["high", "standard", "small"], "description": "For a video's clips." },
                 },
                 "required": ["path"],
@@ -378,6 +383,13 @@ fn profile(v: &str) -> Result<Profile, String> {
     parsed.filter(|p| Profile::CHOICES.contains(p)).ok_or(format!(
         "no profile {v}; use original, flac, wav16, mp3-v0, mp3-v2, mp3-v4, mp3-320, mp3-256, mp3-192 or mp3-128"
     ))
+}
+
+fn denoise(v: &str) -> Result<Denoise, String> {
+    Denoise::CHOICES
+        .into_iter()
+        .find(|d| format!("{d:?}").eq_ignore_ascii_case(v.trim()))
+        .ok_or(format!("no denoise {v}; use off, light, medium or strong"))
 }
 
 fn normalize(v: &str) -> Result<Normalize, String> {
@@ -556,9 +568,9 @@ fn describe(path: &Path, scan: &Scan, edit: &RecordingEdit, settings: &ExportSet
 
 fn export_settings(s: &ExportSettings, video: bool) -> Value {
     if video {
-        json!({ "format": s.video.label(), "loudness": s.normalize.label(), "naming": s.naming })
+        json!({ "format": s.video.label(), "loudness": s.normalize.label(), "noise": s.denoise.label(), "naming": s.naming })
     } else {
-        json!({ "format": s.profile.label(), "loudness": s.normalize.label(), "naming": s.naming })
+        json!({ "format": s.profile.label(), "loudness": s.normalize.label(), "noise": s.denoise.label(), "naming": s.naming })
     }
 }
 
@@ -730,6 +742,9 @@ fn export(args: &Value) -> Result<Value, String> {
     if let Some(q) = args["video_quality"].as_str() {
         settings.video = video_quality(q)?;
     }
+    if let Some(d) = args["denoise"].as_str() {
+        settings.denoise = denoise(d)?;
+    }
     let pro = desktop_kit::licence::current().exports_all();
     let done = export_now(&rec.path, scan, cutlist.recordings.get(&rec.key), &settings, pro)?;
     // Marked exported, as the window marks it.
@@ -742,6 +757,7 @@ fn export(args: &Value) -> Result<Value, String> {
         "files": done.files,
         "format": if is_video(&rec.path) { settings.video.label() } else { settings.profile.label() },
         "loudness": settings.normalize.label(),
+        "noise": settings.denoise.label(),
     });
     if done.kept > done.files.len() {
         v["note"] = json!(format!(

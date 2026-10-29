@@ -10,6 +10,7 @@
 //!
 //! **WAV**: the sample bytes are copied with the original `fmt ` chunk, so it is bit-exact.
 
+use crate::denoise::NoisePrint;
 use crate::mp3index::{parse_header, Mp3Index};
 use crate::scan::{Bitrate, Scan};
 use crate::source::open_source;
@@ -19,7 +20,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use trackcut_core::export::Profile;
+use trackcut_core::export::{Denoise, Profile};
 
 /// Samples every MP3 decoder outputs before the first real sample (LAME convention).
 const DECODER_DELAY: u64 = 529;
@@ -88,6 +89,19 @@ pub fn export(
     profile: Profile,
     progress: &mut dyn FnMut(usize),
 ) -> Result<()> {
+    export_with(source, scan, jobs, profile, None, progress)
+}
+
+/// [`export`], with the noise in `denoise` taken out of re-encoded tracks (learned once per
+/// recording with [`crate::denoise::learn`]). A copy in the original format is never changed.
+pub fn export_with(
+    source: &Path,
+    scan: &Scan,
+    jobs: &[ExportJob],
+    profile: Profile,
+    denoise: Option<(&NoisePrint, Denoise)>,
+    progress: &mut dyn FnMut(usize),
+) -> Result<()> {
     if profile == Profile::Original && !can_copy(source, scan) {
         bail!("the audio of this file can't be copied as is; pick another format");
     }
@@ -113,7 +127,7 @@ pub fn export(
         let result = match (&mut pcm, &scan.mp3, &wav) {
             (Some(pcm), _, _) => (|| {
                 let mut w = BufWriter::new(File::create(&tmp)?);
-                encode_track(profile, pcm.as_mut(), job.start, job.end, bits, job.gain_db, &job.tags, &mut w)?;
+                encode_track(profile, pcm.as_mut(), job.start, job.end, bits, job.gain_db, denoise, &job.tags, &mut w)?;
                 w.flush()?;
                 Ok(())
             })(),

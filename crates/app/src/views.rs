@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use trackcut_audio::{Bitrate, Scan};
 use trackcut_core::edit::SplitState;
-use trackcut_core::export::{plan, Normalize, Profile, VideoProfile};
+use trackcut_core::export::{plan, Denoise, Normalize, Profile, VideoProfile};
 use trackcut_core::license::StatusExt;
 use trackcut_core::loudness::Loudness;
 use trackcut_core::time::{fmt_precise, fmt_short};

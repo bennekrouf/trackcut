@@ -12,6 +12,9 @@ pub struct ExportSettings {
     pub profile: Profile,
     #[serde(default)]
     pub normalize: Normalize,
+    /// Background noise taken out when re-encoding (a byte copy keeps the sound as it is).
+    #[serde(default, skip_serializing_if = "Denoise::is_off")]
+    pub denoise: Denoise,
     /// Format of a video's clips (`profile` is for audio recordings).
     #[serde(default)]
     pub video: VideoProfile,
@@ -23,6 +26,7 @@ impl Default for ExportSettings {
             naming: "{nn} - {title}".into(),
             profile: Profile::Original,
             normalize: Normalize::Off,
+            denoise: Denoise::Off,
             video: VideoProfile::default(),
         }
     }
@@ -95,6 +99,57 @@ impl Normalize {
             Normalize::Off => "Loudness unchanged".into(),
             Normalize::Album { target } => format!("Whole recording to {target} LUFS"),
             Normalize::Track { target } => format!("Each track to {target} LUFS"),
+        }
+    }
+}
+
+/// Steady background noise (hiss, hum, room tone) taken out when re-encoding. The noise is
+/// learned from the recording's quietest moments, so what plays over it is left alone as far
+/// as possible; the stronger settings take out more and colour the sound more.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Denoise {
+    #[default]
+    Off,
+    Light,
+    Medium,
+    Strong,
+}
+
+impl Denoise {
+    pub const CHOICES: [Denoise; 4] = [Denoise::Off, Denoise::Light, Denoise::Medium, Denoise::Strong];
+
+    pub fn is_off(&self) -> bool {
+        *self == Denoise::Off
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Denoise::Off => "Noise unchanged",
+            Denoise::Light => "Reduce noise · light",
+            Denoise::Medium => "Reduce noise · medium",
+            Denoise::Strong => "Reduce noise · strong",
+        }
+    }
+
+    /// How far down the noise goes, in dB: the most any part of the sound is turned down.
+    pub fn reduction_db(&self) -> Option<f32> {
+        match self {
+            Denoise::Off => None,
+            Denoise::Light => Some(8.0),
+            Denoise::Medium => Some(14.0),
+            Denoise::Strong => Some(20.0),
+        }
+    }
+
+    /// How many times the learned noise is taken off: above 1 catches noise a little louder
+    /// than what was learned, at the cost of quiet sounds near it.
+    pub fn oversubtraction(&self) -> f32 {
+        match self {
+            Denoise::Off => 0.0,
+            Denoise::Light => 1.5,
+            Denoise::Medium => 2.0,
+            Denoise::Strong => 3.0,
         }
     }
 }
