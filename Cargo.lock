@@ -5748,7 +5748,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut"
-version = "0.1.42"
+version = "0.1.43"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -5774,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-audio"
-version = "0.1.42"
+version = "0.1.43"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5792,7 +5792,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-core"
-version = "0.1.42"
+version = "0.1.43"
 dependencies = [
  "desktop-kit",
  "serde",
