@@ -1,0 +1,82 @@
+[
+ {
+  "query": "I have a 2 hour live set as a wav in ~/Music/sets, split it into tracks at the silences and name them from this tracklist: 1. Intro 2. Shadows 3. ...",
+  "should_trigger": true
+ },
+ {
+  "query": "the splitter put a cut in the middle of track 4 where there's a quiet bridge, around 23:40, remove it",
+  "should_trigger": true
+ },
+ {
+  "query": "digitised a vinyl side as one mp3, can you split it into the 6 songs and export flac",
+  "should_trigger": true
+ },
+ {
+  "query": "export the concert tracks as mp3 v0 normalised to -14 LUFS for the whole album",
+  "should_trigger": true
+ },
+ {
+  "query": "leave out the talking between songs and the applause at the end, then export",
+  "should_trigger": true
+ },
+ {
+  "query": "the room was noisy so the silence detection found nothing, try again with a higher threshold",
+  "should_trigger": true
+ },
+ {
+  "query": "give me a cleaned copy of the lecture recording without the long silences, keep the original",
+  "should_trigger": true
+ },
+ {
+  "query": "mark the three recordings I finished as done and flag the one with the dropout",
+  "should_trigger": true
+ },
+ {
+  "query": "download the audio of my own youtube upload https://youtu.be/xyz and split it into the chapters",
+  "should_trigger": true
+ },
+ {
+  "query": "split this mp4 of my band's gig into separate video clips per song",
+  "should_trigger": true
+ },
+ {
+  "query": "transcribe this podcast episode and give me chapters with timestamps",
+  "should_trigger": false
+ },
+ {
+  "query": "what's the difference between flac and alac and which should I use for archiving",
+  "should_trigger": false
+ },
+ {
+  "query": "write a python script using pydub that splits an mp3 on silence",
+  "should_trigger": false
+ },
+ {
+  "query": "fix clipping in this vocal track",
+  "should_trigger": false
+ },
+ {
+  "query": "convert all the wav files in this folder to mp3 320 with ffmpeg",
+  "should_trigger": false
+ },
+ {
+  "query": "how do I tag mp3 files with album art in bulk on mac",
+  "should_trigger": false
+ },
+ {
+  "query": "recommend a DAW for recording a 4 piece band at home",
+  "should_trigger": false
+ },
+ {
+  "query": "download this song from youtube for me https://youtu.be/abc",
+  "should_trigger": false
+ },
+ {
+  "query": "master my EP to streaming loudness, what LUFS should I target",
+  "should_trigger": false
+ },
+ {
+  "query": "cut the first 30 seconds off this audio file",
+  "should_trigger": false
+ }
+]
