@@ -1,6 +1,6 @@
 ---
 name: trackcut
-description: Drive TrackCut, the desktop app that splits long audio recordings (MP3, WAV, or the sound of an MP4 or MOV video) into tracks at silences and exports one tagged file per track, through its MCP tools. Use this whenever the user mentions TrackCut, or asks to split a concert, DJ set, album rip, podcast, lecture, vinyl or tape digitisation into tracks, name tracks from a tracklist, leave talk or applause out, remove silences from a recording, normalise loudness or reduce noise on export, or export tracks as FLAC, WAV or MP3. Also use it when TrackCut's tools are missing and the user wants to connect the app.
+description: How to split long recordings into tracks with TrackCut, the desktop app that finds the silences in an MP3, WAV or video, lets the user review the splits and exports one tagged file per track. Read this skill before calling any trackcut tool (list_recordings, get_recording, detect, edit_splits, set_tracks, paste_tracklist, export, apply_cuts, download), because it has the review-before-export rules, how to tune silence detection, format and loudness defaults, and how to report splits. Use it whenever the user mentions TrackCut, or asks to split a live set, concert, DJ mix, album rip, vinyl or tape side, lecture or band video into tracks or clips, fix or move a split, name tracks from a tracklist, leave out talk or applause, remove silences, or export tracks as FLAC, WAV or MP3.
 ---
 
 # TrackCut
@@ -72,3 +72,20 @@ Recordings are the user's own files. Ask before each of these:
 
 Suggest `flac` for archiving and `mp3-v0` for listening, unless the user
 prefers otherwise.
+
+## How to report back
+
+For a recording's splits, use a table, in order:
+
+| # | Starts | Length | Title | Kept | Split |
+|---|---|---|---|---|---|
+
+Times as h:mm:ss (or m:ss under an hour). The *Split* column says whether the
+split before the track is confirmed or only suggested. Below the table, point
+out what looks wrong: a track much shorter or longer than the rest, a count
+that doesn't match the tracklist, a suggested split inside a song.
+
+Before `export`, one line with the format, loudness and noise settings, the
+number of tracks, and the folder it writes to, and wait for the user's yes.
+After it, give the folder's full path and the files written, and say if the
+free version stopped short of the last tracks.

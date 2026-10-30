@@ -1,0 +1,171 @@
+{
+  "skill_name": "trackcut",
+  "description": "How to split long recordings into tracks with TrackCut, the desktop app that finds the silences in an MP3, WAV or video, lets the user review the splits and exports one tagged file per track. Read this skill before calling any trackcut tool (list_recordings, get_recording, detect, edit_splits, set_tracks, paste_tracklist, export, apply_cuts, download), because it has the review-before-export rules, how to tune silence detection, format and loudness defaults, and how to report splits. Use it whenever the user mentions TrackCut, or asks to split a live set, concert, DJ mix, album rip, vinyl or tape side, lecture or band video into tracks or clips, fix or move a split, name tracks from a tracklist, leave out talk or applause, remove silences, or export tracks as FLAC, WAV or MP3.",
+  "results": [
+    {
+      "query": "I have a 2 hour live set as a wav in ~/Music/sets, split it into tracks at the silences and name them from this tracklist: 1. Intro 2. Shadows 3. ...",
+      "should_trigger": true,
+      "trigger_rate": 0.3333333333333333,
+      "triggers": 1,
+      "runs": 3,
+      "pass": false
+    },
+    {
+      "query": "the splitter put a cut in the middle of track 4 where there's a quiet bridge, around 23:40, remove it",
+      "should_trigger": true,
+      "trigger_rate": 1.0,
+      "triggers": 3,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "digitised a vinyl side as one mp3, can you split it into the 6 songs and export flac",
+      "should_trigger": true,
+      "trigger_rate": 0.3333333333333333,
+      "triggers": 1,
+      "runs": 3,
+      "pass": false
+    },
+    {
+      "query": "export the concert tracks as mp3 v0 normalised to -14 LUFS for the whole album",
+      "should_trigger": true,
+      "trigger_rate": 0.6666666666666666,
+      "triggers": 2,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "leave out the talking between songs and the applause at the end, then export",
+      "should_trigger": true,
+      "trigger_rate": 0.3333333333333333,
+      "triggers": 1,
+      "runs": 3,
+      "pass": false
+    },
+    {
+      "query": "the room was noisy so the silence detection found nothing, try again with a higher threshold",
+      "should_trigger": true,
+      "trigger_rate": 1.0,
+      "triggers": 3,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "give me a cleaned copy of the lecture recording without the long silences, keep the original",
+      "should_trigger": true,
+      "trigger_rate": 0.6666666666666666,
+      "triggers": 2,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "mark the three recordings I finished as done and flag the one with the dropout",
+      "should_trigger": true,
+      "trigger_rate": 0.6666666666666666,
+      "triggers": 2,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "download the audio of my own youtube upload https://youtu.be/xyz and split it into the chapters",
+      "should_trigger": true,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": false
+    },
+    {
+      "query": "split this mp4 of my band's gig into separate video clips per song",
+      "should_trigger": true,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": false
+    },
+    {
+      "query": "transcribe this podcast episode and give me chapters with timestamps",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "what's the difference between flac and alac and which should I use for archiving",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "write a python script using pydub that splits an mp3 on silence",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "fix clipping in this vocal track",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "convert all the wav files in this folder to mp3 320 with ffmpeg",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "how do I tag mp3 files with album art in bulk on mac",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "recommend a DAW for recording a 4 piece band at home",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "download this song from youtube for me https://youtu.be/abc",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "master my EP to streaming loudness, what LUFS should I target",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    },
+    {
+      "query": "cut the first 30 seconds off this audio file",
+      "should_trigger": false,
+      "trigger_rate": 0.0,
+      "triggers": 0,
+      "runs": 3,
+      "pass": true
+    }
+  ],
+  "summary": {
+    "total": 20,
+    "passed": 15,
+    "failed": 5
+  }
+}
