@@ -43,7 +43,9 @@ comes from set_tracks or paste_tracklist; a track left out (talk, applause) is n
 export writes the kept tracks into a folder named after the recording, next to it; the free \
 version writes the first tracks only. apply_cuts writes a copy without the cut parts. download \
 fetches a recording from a URL. Recordings are the user's files: ask before exporting into their \
-folders or downloading.";
+folders or downloading. \
+Before calling these tools, read the trackcut skill if one is available: it has the confirmation \
+rules, defaults and report layouts that these instructions leave out.";
 
 pub fn serve() {
     let stdin = std::io::stdin();
