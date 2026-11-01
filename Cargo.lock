@@ -1117,6 +1117,7 @@ dependencies = [
  "getrandom 0.3.4",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
 ]
 
@@ -5749,7 +5750,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut"
-version = "0.1.50"
+version = "0.1.51"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -5775,7 +5776,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-audio"
-version = "0.1.50"
+version = "0.1.51"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5793,7 +5794,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-core"
-version = "0.1.50"
+version = "0.1.51"
 dependencies = [
  "desktop-kit",
  "serde",
