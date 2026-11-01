@@ -81,15 +81,17 @@ fn handle(id: Value, message: &Value) -> Value {
                     "protocolVersion": version,
                     "capabilities": { "tools": {} },
                     "serverInfo": { "name": "trackcut", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": INSTRUCTIONS,
+                    "instructions": format!("{INSTRUCTIONS} {}", desktop_kit::library::mcp::INSTRUCTIONS),
                 }),
             )
         }
         "ping" => result(id, json!({})),
-        "tools/list" => result(id, json!({ "tools": tools() })),
+        "tools/list" => result(id, json!({ "tools": with_library(tools()) })),
         "tools/call" => {
             let name = params["name"].as_str().unwrap_or("");
-            let (text, is_error) = match call(name, &params["arguments"]) {
+            let args = &params["arguments"];
+            let answer = desktop_kit::library::mcp::call(name, args).unwrap_or_else(|| call(name, args));
+            let (text, is_error) = match answer {
                 Ok(value) => (pretty(&value), false),
                 Err(why) => (why, true),
             };
@@ -97,6 +99,14 @@ fn handle(id: Value, message: &Value) -> Value {
         }
         _ => error(id, -32601, &format!("no method {method}")),
     }
+}
+
+/// The app's tools, then the media library's, which every Mayorana app serves alike.
+fn with_library(mut tools: Value) -> Value {
+    if let Some(list) = tools.as_array_mut() {
+        list.extend(desktop_kit::library::mcp::tools());
+    }
+    tools
 }
 
 fn write(stdout: &mut std::io::Stdout, reply: &Value) {
@@ -306,6 +316,18 @@ fn tools() -> Value {
 }
 
 fn call(name: &str, args: &Value) -> Result<Value, String> {
+    let result = run(name, args);
+    // New tracks or a cleaned copy show in the library the other apps share, even with
+    // TrackCut's window closed.
+    if result.is_ok() && matches!(name, "export" | "apply_cuts" | "edit_splits" | "set_tracks" | "paste_tracklist") {
+        if let Some(dir) = args["path"].as_str().and_then(|p| std::path::Path::new(p).parent()) {
+            crate::library::sync_folder(dir);
+        }
+    }
+    result
+}
+
+fn run(name: &str, args: &Value) -> Result<Value, String> {
     match name {
         "list_recordings" => list(args),
         "get_recording" => {
