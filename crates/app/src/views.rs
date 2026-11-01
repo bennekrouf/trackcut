@@ -44,10 +44,74 @@ const COLS: usize = 1600;
 /// How close (in pixels) a click must be to grab a split marker.
 const GRAB_PX: f64 = 6.0;
 
+/// What the main area shows: the recording being cut, or the library and calendar every
+/// Mayorana app shares.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Pane {
+    Tracks,
+    Library,
+    Calendar,
+}
+
+impl Pane {
+    const ALL: [Pane; 3] = [Pane::Tracks, Pane::Library, Pane::Calendar];
+
+    fn label(self) -> &'static str {
+        match self {
+            Pane::Tracks => "Tracks",
+            Pane::Library => "Library",
+            Pane::Calendar => "Calendar",
+        }
+    }
+}
+
 #[component]
 pub fn App() -> Element {
     let app = use_context_provider(state::App::new);
     let theme = use_theme();
+    // Shared with the file list, whose click goes back to the recording.
+    let mut pane = use_context_provider(|| Signal::new(Pane::Tracks));
+    // The library every Mayorana app shares, and a recording opened from it, here or from
+    // PolishCast or PublishKit.
+    let shared = desktop_kit::ui::use_library();
+    let mut open_recording = move |target: String| {
+        let path = std::path::PathBuf::from(target);
+        if path.is_file() {
+            app.open(&path);
+            pane.set(Pane::Tracks);
+            dioxus::desktop::window().set_focus();
+        } else {
+            let mut error = app.error;
+            error.set(Some(format!("{} isn't there any more.", path.display())));
+        }
+    };
+    // The open folder's recordings in the shared library, kept as they are on disk.
+    use_future(move || async move {
+        let mut last = None;
+        loop {
+            let folder = app.folder.peek().clone();
+            if let Some(dir) = folder {
+                let stamp = tokio::task::spawn_blocking({
+                    let dir = dir.clone();
+                    move || (crate::library::stamp(&dir), dir)
+                })
+                .await
+                .ok();
+                if stamp != last {
+                    let _ = tokio::task::spawn_blocking(move || crate::library::sync_folder(&dir)).await;
+                    last = stamp;
+                }
+            }
+            if let Some(note) =
+                tokio::task::spawn_blocking(|| desktop_kit::handoff::take("trackcut", "open")).await.ok().flatten()
+            {
+                if let Some(target) = note["open"].as_str() {
+                    open_recording(target.to_string());
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(1500)).await;
+        }
+    });
 
     use_hook(move || match std::env::args().nth(1) {
         Some(arg) => app.open(std::path::Path::new(&arg)),
@@ -84,7 +148,8 @@ pub fn App() -> Element {
     let sidebar_drag = app.sidebar_drag;
 
     let onkeydown = move |e: KeyboardEvent| {
-        if app.paste.peek().is_some()
+        if *pane.peek() != Pane::Tracks
+            || app.paste.peek().is_some()
             || app.editing_title.peek().is_some()
             || app.url_dialog.peek().is_some()
             || *app.licence_dialog.peek()
@@ -269,6 +334,15 @@ pub fn App() -> Element {
                 }
             },
             pro: rsx! { ProButton { pro: app.pro(), hint: crate::pro::hint() } },
+            div { class: "kit-tabs",
+                for p in Pane::ALL {
+                    button {
+                        class: if pane() == p { "kit-tab kit-on" } else { "kit-tab" },
+                        onclick: move |_| pane.set(p),
+                        "{p.label()}"
+                    }
+                }
+            }
         }
         div {
             class: if sidebar_drag() { "app resizing" } else { "app" },
@@ -293,7 +367,21 @@ pub fn App() -> Element {
                 app.focus_root();
             },
             Sidebar {}
-            main { class: "main", Editor {} }
+            main { class: "main",
+                match pane() {
+                    Pane::Tracks => rsx! { Editor {} },
+                    Pane::Library => rsx! {
+                        div { class: "shared-pane",
+                            desktop_kit::ui::LibraryView { here: "trackcut", items: shared, on_open: open_recording }
+                        }
+                    },
+                    Pane::Calendar => rsx! {
+                        div { class: "shared-pane",
+                            desktop_kit::ui::PipelineCalendar { here: "trackcut", items: shared, on_open: open_recording }
+                        }
+                    },
+                }
+            }
             UrlDialog {}
             DeleteDialog {}
             ProWindow {
