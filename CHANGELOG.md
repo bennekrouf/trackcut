@@ -15,6 +15,15 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Changed
+
+- Using TrackCut from Claude, Codex or another agent takes less of the agent's
+  context on every message, including ones that have nothing to do with
+  TrackCut: its instructions are a few lines, and what a setting every tool
+  takes means is said once rather than in each tool.
+
 ## [0.1.49] - 2026-11-01
 
 ### Added
