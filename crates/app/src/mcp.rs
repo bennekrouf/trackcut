@@ -33,17 +33,11 @@ use trackcut_core::{detect, is_recording, is_video, list_recordings, tracklist, 
 const PROTOCOL: &str = "2025-06-18";
 
 const INSTRUCTIONS: &str = "TrackCut splits long recordings (MP3, WAV, or the sound of an MP4/MOV \
-video) into tracks at silences, then exports one file per track. Its edits for a folder are kept \
-in the folder, so recordings are named by their absolute path. Start with list_recordings, which \
-defaults to the folder open in the TrackCut window. get_recording shows a recording's splits and \
-tracks; the first time, it scans the file and suggests splits at silences, which can take a few \
-seconds for a long file. Suggested splits are unreviewed: tell the user where they fall and let \
-them confirm, or confirm them when asked (edit_splits). Times are in seconds. A track's title \
-comes from set_tracks or paste_tracklist; a track left out (talk, applause) is not exported. \
-export writes the kept tracks into a folder named after the recording, next to it; the free \
-version writes the first tracks only. apply_cuts writes a copy without the cut parts. download \
-fetches a recording from a URL. Recordings are the user's files: ask before exporting into their \
-folders or downloading. \
+video) into tracks at silences, then exports one file per track. A recording is named by its \
+absolute path. Start with list_recordings, which defaults to the folder open in the TrackCut window. \
+Suggested splits are unreviewed: tell the user where they fall and let them confirm, or confirm \
+them when asked (edit_splits). Times are in seconds. Recordings are the user's files: ask before \
+exporting into their folders or downloading. \
 Before calling these tools, read the trackcut skill if one is available: it has the confirmation \
 rules, defaults and report layouts that these instructions leave out.";
 
@@ -146,7 +140,8 @@ fn without_nulls(value: Value) -> Value {
 // ── Tool definitions ─────────────────────────────────────────────────────────────────────
 
 fn tools() -> Value {
-    let path = json!({ "type": "string", "description": "Absolute path of the recording." });
+    // What path means is said once, in the instructions, not in every tool.
+    let path = json!({ "type": "string" });
     let ids = json!({
         "type": "array", "items": { "type": "integer", "minimum": 0 },
         "description": "Split ids, as get_recording lists them.",
