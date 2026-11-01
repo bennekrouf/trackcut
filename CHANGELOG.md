@@ -15,6 +15,22 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- Plan ahead in the library: Plan… puts a video, audio or post you mean to
+  make on the calendar, with its outline or script. Once it is made, Claude
+  can hand the idea and its notes over to the take, recording or post.
+- Claude can now use the media library too: search it, read the calendar of
+  any week, plan an idea, and set an item's status, tags or notes. The same
+  in PolishCast, TrackCut and PublishKit.
+
+### Fixed
+
+- Tracks exported and cuts made from Claude show in the library right away,
+  even with TrackCut's window closed.
+
 ## [0.1.48] - 2026-11-01
 
 ### Added
