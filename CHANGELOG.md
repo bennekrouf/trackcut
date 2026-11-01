@@ -15,6 +15,13 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Changed
+
+- The sidebar edge now has a wider line with three dots mid-height for better
+  visual feedback, making it easier to grab and resize.
+
 ## [0.1.52] - 2026-11-01
 
 ### Added
