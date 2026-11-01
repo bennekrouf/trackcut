@@ -15,6 +15,16 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- Library and Calendar, beside your tracks: the media library PolishCast and
+  PublishKit share. The recordings you work on show there by themselves,
+  polishing while you cut them and ready once their tracks are exported. Takes
+  from PolishCast and posts from PublishKit are there too. Set a status or
+  tags by hand, search, or open anything in the app that made it.
+
 ## [0.1.47] - 2026-10-31
 
 ### Changed

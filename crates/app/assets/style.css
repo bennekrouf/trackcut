@@ -162,6 +162,8 @@ button.primary { border-color: var(--accent); color: var(--accent); }
   min-width: 0;
   overflow: hidden;
 }
+/* The library and calendar every Mayorana app shares, in place of the editor. */
+.shared-pane { flex: 1; min-height: 0; overflow: auto; margin: -16px -20px; }
 .file-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .file-name .rename { visibility: visible; }
 .file-name .applying { font-size: 12px; white-space: nowrap; }

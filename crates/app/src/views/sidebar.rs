@@ -5,6 +5,7 @@ use super::*;
 #[component]
 pub(super) fn Sidebar() -> Element {
     let app = use_context::<state::App>();
+    let mut pane = use_context::<Signal<Pane>>();
     let recordings = app.recordings.read();
     let selected = (app.selected)();
     let scans = app.scans.read();
@@ -61,7 +62,10 @@ pub(super) fn Sidebar() -> Element {
                             div {
                                 key: "{rec.path.display()}",
                                 class: if selected == Some(i) { "item selected" } else { "item" },
-                                onclick: move |_| app.select(i),
+                                onclick: move |_| {
+                                    app.select(i);
+                                    pane.set(Pane::Tracks);
+                                },
                                 span { class: "{dot}", title: "{dot_title}" }
                                 span { class: "item-name", title: "{rec.name()}", "{rec.name()}" }
                                 {

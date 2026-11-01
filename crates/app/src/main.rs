@@ -7,6 +7,7 @@ mod download;
 mod exporting;
 mod http;
 mod kit;
+mod library;
 mod mcp;
 mod mcp_panel;
 mod media_server;
