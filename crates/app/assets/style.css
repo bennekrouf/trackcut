@@ -100,10 +100,21 @@ html, body {
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -3px;
-  width: 6px;
+  right: -4px;
+  width: 8px;
   cursor: col-resize;
   z-index: 5;
+}
+/* A wider line over the border, with three dots mid-height to grab. */
+.sidebar-edge::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px;
+  background: var(--line, rgba(128,128,128,.3));
+}
+.sidebar-edge::before {
+    content: ""; position: absolute; z-index: 1; pointer-events: none;
+    top: 50%; left: 50%; width: 4px; height: 22px; transform: translate(-50%, -50%);
+    border-radius: 2px;
+    background: radial-gradient(circle, var(--muted, #888) 1.3px, transparent 1.6px) center / 4px 7.33px repeat-y;
 }
 .sidebar-edge:hover, .app.resizing .sidebar-edge { background: var(--accent); opacity: 0.6; }
 .app.resizing, .app.resizing * { cursor: col-resize !important; user-select: none; }
