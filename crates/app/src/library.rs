@@ -4,7 +4,7 @@
 //! it is right however a recording changed, here or through `trackcut mcp`.
 
 use crate::exporting::export_dir_of;
-use desktop_kit::library::{self as shared, Item, Kind, Role, Status};
+use desktop_kit::library::{self as shared, modified, Item, Kind, Role, Status};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -51,10 +51,6 @@ pub fn item_of(path: &Path) -> Option<Item> {
     Some(item)
 }
 
-fn modified(path: &Path) -> Option<SystemTime> {
-    std::fs::metadata(path).and_then(|m| m.modified()).ok()
-}
-
 /// The folder's recordings TrackCut has worked on (those with edits in its cutlist), and none
 /// that are gone from it.
 pub fn sync_folder(dir: &Path) {
@@ -80,11 +76,7 @@ pub fn sync_folder(dir: &Path) {
 
 /// Changes whenever a recording, an export folder or the cutlist changes.
 pub fn stamp(dir: &Path) -> Vec<(PathBuf, Option<SystemTime>)> {
-    let mut stamp: Vec<(PathBuf, Option<SystemTime>)> = std::fs::read_dir(dir)
-        .map(|r| r.filter_map(|e| e.ok()).map(|e| (e.path(), e.metadata().and_then(|m| m.modified()).ok())).collect())
-        .unwrap_or_default();
-    stamp.sort();
-    stamp
+    shared::folder_stamp(dir)
 }
 
 #[cfg(test)]
