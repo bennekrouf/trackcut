@@ -15,6 +15,18 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Changed
+
+- The "Use TrackCut from Claude or Codex" window now looks and reads the same as
+  in the other Mayorana apps, with a copy button on every step, and Escape
+  closes it.
+- Open… (⌘O) offers the recordings your other apps made, such as PolishCast
+  videos and files you added to the library, so you don't have to find the
+  folder they're in. Choosing one opens its folder with it selected. A file from
+  the disk is a link at the bottom, and ⌘⇧O still opens a whole folder.
+
 ## [0.1.56] - 2026-11-02
 
 ### Changed

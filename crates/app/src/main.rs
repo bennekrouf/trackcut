@@ -10,7 +10,7 @@ mod kit;
 mod library;
 mod mcp;
 mod mcp_panel;
-mod media_server;
+use desktop_kit::media as media_server;
 mod pro;
 mod review;
 mod state;

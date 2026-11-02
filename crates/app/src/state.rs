@@ -101,6 +101,8 @@ pub struct App {
     pub download_log: Signal<Option<crate::download::DownloadLog>>,
     /// The "Use TrackCut from Claude" window is open.
     pub mcp_dialog: Signal<bool>,
+    /// The library picker for a recording to open is open.
+    pub picking: Signal<bool>,
     /// When the current error message was first shown (they fade after a while).
     error_since: Signal<Option<Instant>>,
 }
@@ -150,6 +152,7 @@ impl App {
             download: Signal::new(None),
             download_log: Signal::new(None),
             mcp_dialog: Signal::new(false),
+            picking: Signal::new(false),
             error_since: Signal::new(None),
         }
     }

@@ -63,8 +63,14 @@ pub(super) fn on_key(app: state::App, pane: Signal<Pane>, e: KeyboardEvent) {
             app.zoom(2.0);
             true
         }
-        Code::KeyO if cmd => {
+        // ⌘O: a recording from the library; ⌘⇧O: a whole folder from the disk.
+        Code::KeyO if cmd && m.shift() => {
             open_folder(app);
+            true
+        }
+        Code::KeyO if cmd => {
+            let mut picking = app.picking;
+            picking.set(true);
             true
         }
         Code::KeyU if cmd => {
