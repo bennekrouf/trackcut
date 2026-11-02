@@ -4,7 +4,7 @@ use crate::exporting::source_facts;
 use crate::exporting::ExportStatus;
 use crate::review;
 use crate::state::{self, key_of, ScanState};
-use desktop_kit::ui::{use_theme, Banners, Header, ProButton, ProWindow};
+use desktop_kit::ui::{use_theme, Banners, Header, ProButton, ProWindow, SettingsWindow, Toolbar};
 use dioxus::html::input_data::MouseButton;
 use dioxus::prelude::*;
 use std::fmt::Write;
@@ -71,6 +71,7 @@ impl Pane {
 pub fn App() -> Element {
     let app = use_context_provider(state::App::new);
     let theme = use_theme();
+    let mut settings_open = use_signal(|| false);
     // Shared with the file list, whose click goes back to the recording.
     let mut pane = use_context_provider(|| Signal::new(Pane::Tracks));
     // The library every Mayorana app shares, and a recording opened from it, here or from
@@ -97,30 +98,14 @@ pub fn App() -> Element {
     rsx! {
         style { {CSS} }
         Header {
-            theme,
+            on_settings: move |_| settings_open.set(true),
             on_mcp: move |_| {
                 let mut dialog = app.mcp_dialog;
                 dialog.set(true);
             },
-            actions: rsx! {
-                button {
-                    class: "kit-btn",
-                    title: "Open a recording: what the other apps made, or one from the disk (⌘O). A whole folder: ⌘⇧O",
-                    onclick: move |_| {
-                        let mut picking = app.picking;
-                        picking.set(true);
-                    },
-                    "Open…"
-                }
-                button {
-                    class: "kit-btn",
-                    title: "Download a YouTube video's audio and open it (⌘U)",
-                    disabled: app.download.read().is_some(),
-                    onclick: move |_| app.ask_url(),
-                    "URL…"
-                }
-            },
             pro: rsx! { ProButton { pro: app.pro(), hint: crate::pro::hint() } },
+        }
+        Toolbar {
             div { class: "kit-tabs",
                 for p in Pane::ALL {
                     button {
@@ -130,6 +115,26 @@ pub fn App() -> Element {
                     }
                 }
             }
+            span { class: "kit-spacer" }
+            button {
+                class: "kit-btn",
+                title: "Open a recording: what the other apps made, or one from the disk (⌘O). A whole folder: ⌘⇧O",
+                onclick: move |_| {
+                    let mut picking = app.picking;
+                    picking.set(true);
+                },
+                "Open…"
+            }
+            button {
+                class: "kit-btn",
+                title: "Download a YouTube video's audio and open it (⌘U)",
+                disabled: app.download.read().is_some(),
+                onclick: move |_| app.ask_url(),
+                "URL…"
+            }
+        }
+        if settings_open() {
+            SettingsWindow { theme, on_close: move |_| settings_open.set(false) }
         }
         div {
             class: if sidebar_drag() { "app resizing" } else { "app" },
