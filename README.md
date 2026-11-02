@@ -20,7 +20,8 @@ crates/app     Dioxus desktop UI
 cargo run -p trackcut -- path/to/folder
 ```
 
-Or start without an argument and use **Open folder…** (⌘O).
+Or start without an argument and use **Open…** (⌘O) to pick a recording the other apps made
+or one from the disk; **⌘⇧O** opens a whole folder.
 
 In the file list, **🗑** (on hover) moves a recording to the system Trash after a confirmation
 (Enter confirms, Esc cancels); its splits and titles are dropped, exported tracks are left

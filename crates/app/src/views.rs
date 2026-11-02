@@ -76,7 +76,7 @@ pub fn App() -> Element {
     // The library every Mayorana app shares, and a recording opened from it, here or from
     // PolishCast or PublishKit.
     let shared = desktop_kit::ui::use_library();
-    let open_recording = move |target: String| {
+    let mut open_recording = move |target: String| {
         let path = std::path::PathBuf::from(target);
         if path.is_file() {
             app.open(&path);
@@ -103,7 +103,15 @@ pub fn App() -> Element {
                 dialog.set(true);
             },
             actions: rsx! {
-                button { class: "kit-btn", title: "Open a folder of recordings (⌘O)", onclick: move |_| open_folder(app), "Open folder…" }
+                button {
+                    class: "kit-btn",
+                    title: "Open a recording: what the other apps made, or one from the disk (⌘O). A whole folder: ⌘⇧O",
+                    onclick: move |_| {
+                        let mut picking = app.picking;
+                        picking.set(true);
+                    },
+                    "Open…"
+                }
                 button {
                     class: "kit-btn",
                     title: "Download a YouTube video's audio and open it (⌘U)",
@@ -169,6 +177,32 @@ pub fn App() -> Element {
                 on_close: move |_| app.focus_root(),
             }
             crate::mcp_panel::McpDialog {}
+            if (app.picking)() {
+                desktop_kit::ui::FilePicker {
+                    want: desktop_kit::library::pick::Want::new("trackcut", "Open a recording to split")
+                        .roles(&[
+                            desktop_kit::library::Role::Source,
+                            desktop_kit::library::Role::Audio,
+                            desktop_kit::library::Role::Video,
+                        ])
+                        .extensions(&["mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "mov"]),
+                    // Its folder opens with it selected: the other recordings beside it are a
+                    // click away in the file list.
+                    on_pick: move |files: Vec<std::path::PathBuf>| {
+                        let mut picking = app.picking;
+                        picking.set(false);
+                        if let Some(file) = files.first() {
+                            open_recording(file.display().to_string());
+                        }
+                        app.focus_root();
+                    },
+                    on_close: move |_| {
+                        let mut picking = app.picking;
+                        picking.set(false);
+                        app.focus_root();
+                    },
+                }
+            }
         }
         Banners { statistics: true }
     }
