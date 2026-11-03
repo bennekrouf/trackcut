@@ -795,8 +795,14 @@ jobs:
           > **Linux runtime requirements**: `libwebkit2gtk-4.1` and ALSA (both installed by `setup-linux.sh`).
           EOF
 
-          gh release create "$TAG" \
-            --title "TrackCut $TAG" \
-            --notes-file notes.md \
-            release/latest.json \
-            release/releases.json
+          # A re-run of a failed build (a macOS runner that never came) finds
+          # the release already made: refresh its feeds rather than fail.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" --clobber release/latest.json release/releases.json
+          else
+            gh release create "$TAG" \
+              --title "TrackCut $TAG" \
+              --notes-file notes.md \
+              release/latest.json \
+              release/releases.json
+          fi
