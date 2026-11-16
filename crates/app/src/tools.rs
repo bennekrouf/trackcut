@@ -135,11 +135,6 @@ pub fn ensure(dir: &Path, progress: &mut dyn FnMut(f32), cancelled: &dyn Fn() ->
     Ok(tools)
 }
 
-/// The app's own folder, where the Windows installers put the ffmpeg they ship.
-pub fn bundled_dir() -> Option<PathBuf> {
-    std::env::current_exe().ok()?.parent().map(Path::to_path_buf)
-}
-
 /// Install ffmpeg into `dir` if it isn't there yet, or is pinned differently, and return its path.
 pub fn ensure_ffmpeg(
     dir: &Path,
@@ -147,10 +142,6 @@ pub fn ensure_ffmpeg(
     cancelled: &dyn Fn() -> bool,
 ) -> Result<PathBuf, String> {
     let exe = std::env::consts::EXE_SUFFIX;
-    // Shipped beside the app by the Windows installers: nothing to download.
-    if let Some(bundled) = bundled_dir().map(|d| d.join(format!("ffmpeg{exe}"))).filter(|p| p.is_file()) {
-        return Ok(bundled);
-    }
     let ffmpeg = dir.join(format!("ffmpeg{exe}"));
     let pin = pin("ffmpeg").ok_or("Video export isn't supported on this platform")?;
     if !installed(&ffmpeg, &pin) {
