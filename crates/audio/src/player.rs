@@ -347,7 +347,10 @@ impl Engine {
         let Some(cur) = &mut self.cur else { return };
         let frame = frame.min(s.total.load(Relaxed));
 
-        // Stop producing, have the callback empty the ring, then restart from `frame`.
+        // Stop producing, have the callback empty the ring, then restart from `frame`. Only the
+        // callback empties it: the ring has one consumer, and moving its read index from here
+        // while the callback pops would let `fill` overwrite samples being read. A callback
+        // that is late leaves the flush pending, and `fill` waits for it.
         s.consumed.store(0, Relaxed);
         s.base.store(frame, Relaxed);
         s.flush.store(true, Release);
@@ -355,8 +358,6 @@ impl Engine {
         while s.flush.load(Acquire) && Instant::now() < deadline {
             std::thread::sleep(Duration::from_micros(500));
         }
-        s.flush.store(false, Relaxed);
-        cur.ring.clear(); // callback is idle between buffers; harmless if it already did
         s.consumed.store(0, Relaxed);
 
         cur.pending.clear();
@@ -374,11 +375,17 @@ impl Engine {
     }
 
     fn wants_data(&self) -> bool {
-        self.cur.as_ref().is_some_and(|c| !c.eos && !c.held && c.ring.free() >= c.ring_chunk())
+        !self.shared.flush.load(Acquire)
+            && self.cur.as_ref().is_some_and(|c| !c.eos && !c.held && c.ring.free() >= c.ring_chunk())
     }
 
     fn fill(&mut self) {
         let s = self.shared.clone();
+        // The callback hasn't emptied the ring since the last seek: what went in now would be
+        // thrown away with the old audio.
+        if s.flush.load(Acquire) {
+            return;
+        }
         let Some(cur) = &mut self.cur else { return };
         loop {
             if cur.pending_at < cur.pending.len() {

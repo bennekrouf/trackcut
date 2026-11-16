@@ -70,8 +70,9 @@ multichannel AAC, and MKV/WebM files, don't open yet.
 downloaded separately, as YouTube serves them, and merged into one MP4 with ffmpeg. Nothing
 needs installing: on first use the app fetches [yt-dlp](https://github.com/yt-dlp/yt-dlp)'s
 standalone build (Python included) and [Deno](https://deno.com) (the JavaScript runtime yt-dlp
-needs for YouTube) into its data folder (`tools/`), checking both against their published SHA-256
-sums. yt-dlp updates itself at most once a day. For audio it fetches the AAC (.m4a) or MP3
+needs for YouTube) into its data folder (`tools/`). Both are pinned: `crates/app/src/tools.pins`
+names the release and the SHA-256 each platform's file must have, and `scripts/pin-tools.sh`
+moves them to the latest releases, so a newer yt-dlp ships with a TrackCut release. For audio it fetches the AAC (.m4a) or MP3
 stream, so no ffmpeg: AAC is decoded to WAV with symphonia; a video download fetches ffmpeg
 first (see Videos). Works on macOS, Windows and Linux (x86_64/arm64).
 The download tests need the network: `cargo test -p trackcut -- --ignored download`, and

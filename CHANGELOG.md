@@ -15,6 +15,30 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Changed
+
+- yt-dlp, Deno and ffmpeg are now pinned: each TrackCut release names the
+  exact version of each tool and the checksum its file must have, and refuses
+  any other file. Until now TrackCut took whatever was newest, checked
+  against a checksum from the same server, so a server serving something else
+  would have been believed. The first download or export after this update
+  fetches the pinned versions once, replacing the tools already installed.
+- yt-dlp no longer updates itself once a day. A newer yt-dlp now comes with a
+  TrackCut update. If YouTube downloads stop working, check for a TrackCut
+  update first.
+
+### Fixed
+
+- Video export and video downloads could not set up ffmpeg on Macs with Apple
+  silicon: the download site's link to its newest build had stopped working.
+- Jumping to another point while the sound output was slow to respond could,
+  rarely, play a moment of the old position's sound or a click.
+- The player's local connection, which any program on the computer can reach,
+  no longer reads a request without limit: such a program could make TrackCut
+  use more and more memory.
+
 ## [0.1.68] - 2026-11-14
 
 ### Changed
