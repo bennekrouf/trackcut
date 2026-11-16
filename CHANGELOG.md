@@ -15,6 +15,25 @@ Each heading is dated on the day its tag was pushed. Releases that carried only
 build or packaging work say so rather than being hidden: the version numbers a
 user sees in the update prompt should all be accounted for.
 
+## [Unreleased]
+
+### Added
+
+- TrackCut is now also published as an .msi for IT departments, to deploy with
+  Intune, Group Policy or SCCM: `msiexec /i trackcut.msi ALLUSERS=1 /qn`
+  installs it for every user. Double-clicked, it installs for you alone with no
+  admin prompt, and it replaces an install made with the setup .exe.
+- IT departments can manage TrackCut on Windows with Group Policy or Intune:
+  turn off the update check, self-update or usage statistics, and set
+  the licence number for every user, under
+  `HKLM\SOFTWARE\Policies\Mayorana\TrackCut`.
+
+### Fixed
+
+- Installing over an existing TrackCut on Windows no longer gets stuck on
+  "Setup was unable to automatically close all applications". Setup now
+  closes TrackCut and its helper processes itself before replacing it.
+
 ## [0.1.69] - 2026-11-16
 
 ### Changed
