@@ -65,7 +65,8 @@ impl Ring {
         n
     }
 
-    /// Consumer: drop everything currently buffered.
+    /// Consumer: drop everything currently buffered. Only the consumer may call it: from any
+    /// other thread it races with `pop` over the read index.
     pub fn clear(&self) {
         self.read.store(self.write.load(Ordering::Acquire), Ordering::Release);
     }
@@ -86,5 +87,40 @@ mod tests {
         assert_eq!(ring.pop(&mut out), 8);
         assert_eq!(&out[..4], &[1.0, 1.0, 2.0, 3.0]);
         assert_eq!(ring.len(), 0);
+    }
+
+    /// A producer pushing a counting sequence while the consumer pops and now and then clears:
+    /// whatever comes out is always in order, never a slot overwritten while being read.
+    #[test]
+    fn clearing_from_the_consumer_keeps_the_order() {
+        use std::sync::atomic::AtomicBool;
+        use std::sync::Arc;
+        let ring = Arc::new(Ring::new(64));
+        let done = Arc::new(AtomicBool::new(false));
+        let producer = {
+            let (ring, done) = (ring.clone(), done.clone());
+            std::thread::spawn(move || {
+                let mut next = 0.0f32;
+                while next < 200_000.0 {
+                    let chunk: Vec<f32> = (0..16).map(|i| next + i as f32).collect();
+                    next += ring.push(&chunk, 1) as f32;
+                }
+                done.store(true, Ordering::Release);
+            })
+        };
+        let (mut last, mut out, mut n) = (-1.0f32, [0.0f32; 8], 0u64);
+        while !done.load(Ordering::Acquire) || ring.len() > 0 {
+            n += 1;
+            if n % 97 == 0 {
+                ring.clear();
+                continue;
+            }
+            let got = ring.pop(&mut out);
+            for &v in &out[..got] {
+                assert!(v > last, "{v} came after {last}");
+                last = v;
+            }
+        }
+        producer.join().unwrap();
     }
 }

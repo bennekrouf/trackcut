@@ -301,7 +301,7 @@ fn explain(err: &str, kind: Kind) -> String {
     } else if err.contains("Video unavailable") || err.contains("not available in your country") {
         " — this video was removed, or isn't available where you are"
     } else if err.contains("Sign in to confirm") || err.contains("not a bot") || err.contains("HTTP Error 403") {
-        " — YouTube is refusing this network for now; yt-dlp updates itself daily, so try again later"
+        " — YouTube is refusing this network for now; try again later, and check for a TrackCut update, which brings a newer yt-dlp"
     } else {
         ""
     };
