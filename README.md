@@ -100,11 +100,12 @@ cargo run -p trackcut-audio --release --example bench -- testdata/live-set-60min
 ## Use from Claude (MCP)
 
 `trackcut mcp` serves the recordings to an MCP client over stdio, with no window
-(`crates/app/src/mcp.rs`). The **MCP** button in the sidebar header shows the Claude
-Desktop config and the Claude Code command, pointing at the installed executable. The
-tools: `list_recordings` (defaults to the window's last folder), `get_recording`,
-`detect`, `edit_splits`, `set_tracks`, `paste_tracklist`, `set_status`, `export`,
-`apply_cuts` and `download`. Recordings are named by absolute path; times are seconds.
+(`crates/app/src/mcp.rs`). The **MCP** button at the top of the window installs it in
+Claude Desktop, Claude Code, Codex and VS Code, shows where it is installed and running,
+and tests it. The tools: `list_recordings` (defaults to the window's last folder),
+`get_recording`, `detect`, `edit_splits`, `set_tracks`, `paste_tracklist`, `set_status`,
+`export`, `apply_cuts` and `download`. Recordings are named by absolute path; times are
+seconds.
 
 They run the window's own code: the scan and its cache, first detection
 (`review::detect_once`), export planning and the export worker (`exporting::export_now`,
