@@ -5810,7 +5810,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut"
-version = "0.1.71"
+version = "0.1.72"
 dependencies = [
  "base64 0.22.1",
  "crossbeam-channel",
@@ -5835,7 +5835,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-audio"
-version = "0.1.71"
+version = "0.1.72"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5853,7 +5853,7 @@ dependencies = [
 
 [[package]]
 name = "trackcut-core"
-version = "0.1.71"
+version = "0.1.72"
 dependencies = [
  "desktop-kit",
  "serde",
